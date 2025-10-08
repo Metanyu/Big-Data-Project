@@ -9,7 +9,8 @@ For an overview of Cassandra architecture, a Cassandra database called a cluster
 
 
 ### 1.2. Data Partitioning
-> [Partitioning] is a method of splitting and storing a single logical dataset in multiple databases. By distributing the data among multiple machines, a **cluster** of database systems can store larger datasets and handle additional requests.
+> **Partitioning** is a method of splitting and storing a single logical dataset in multiple databases. By distributing the data among multiple machines, a **cluster** of database systems can store larger datasets and handle additional requests.
+
 — *How Sharding Works* by Jeeyoung Kim
 
 In Cassandra, **Primary key** not only uniquely identifies a row, but also determines how data is distributed across the cluster. It consists of:
@@ -17,8 +18,6 @@ In Cassandra, **Primary key** not only uniquely identifies a row, but also deter
 - **Clustering Columns**: Define the order of data within a partition.
 
 Given a table :
-Table Users | Legend: p - Partition-Key, c - Clustering Column
-
 ```text
 country (p) | user_email (c)  | first_name | last_name | age
 ----------------------------------------------------------------
