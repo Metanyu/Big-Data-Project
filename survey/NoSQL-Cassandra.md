@@ -19,12 +19,14 @@ In Cassandra, **Primary key** not only uniquely identifies a row, but also deter
 Given a table :
 Table Users | Legend: p - Partition-Key, c - Clustering Column
 
+```text
 country (p) | user_email (c)  | first_name | last_name | age
 ----------------------------------------------------------------
 US          | john@email.com  | John       | Wick      | 55  
 UK          | peter@email.com | Peter      | Clark     | 65  
 UK          | bob@email.com   | Bob        | Sandler   | 23 
 UK          | alice@email.com | Alice      | Brown     | 26
+```
 
 To create this table in Cassandra, you would use:
 ```sql
