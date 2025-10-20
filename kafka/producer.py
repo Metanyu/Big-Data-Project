@@ -1,47 +1,75 @@
 import polars as pl
-import json
-from confluent_kafka import Producer
-import time
+from confluent_kafka import SerializingProducer
+from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.schema_registry.avro import AvroSerializer
+from confluent_kafka.serialization import StringSerializer
+import os
 
-# Kafka producer configuration
-p = Producer({
-    "bootstrap.servers": "localhost:9092",
-    "enable.idempotence": True # Ensures messages are not duplicated
-})
+# --- Configuration ---
+SCRIPT_DIR = os.path.dirname(__file__)
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..'))
 
-# Kafka topic
-TOPIC_NAME = "taxi_trips"
+SCHEMA_PATH = os.path.join(PROJECT_ROOT, "schemas", "taxi_trip.avsc")
+DATA_PATH = os.path.join(PROJECT_ROOT, "data", "yellow_tripdata_2025-08.parquet")
+TOPIC_NAME = "taxi-trips"
+SCHEMA_REGISTRY_URL = "http://localhost:8081"
 
-# Load the dataset
-print("Reading Parquet file...")
-trips = pl.read_parquet("kafka/yellow_tripdata_2025-08.parquet")
-print("File read successfully. Starting to stream data...")
+# 1. Load the Avro schema from the .avsc file
+try:
+    with open(SCHEMA_PATH, "r") as f:
+        schema_str = f.read()
+except FileNotFoundError:
+    print(f"ERROR: Schema file not found at {SCHEMA_PATH}")
+    exit(1)
+if not schema_str:
+    print(f"ERROR: Schema file at {SCHEMA_PATH} is empty.")
+    exit(1)
 
-# Iterate over each row and send it to Kafka
-for row in trips.iter_rows(named=True):
+# 2. Set up Schema Registry client
+schema_registry_conf = {'url': SCHEMA_REGISTRY_URL}
+schema_registry_client = SchemaRegistryClient(schema_registry_conf)
+
+# 3. Define serializers for key and value
+string_serializer = StringSerializer('utf_8')
+
+# --- THIS IS THE FIX ---
+# The arguments were swapped. It must be (client, schema_str).
+avro_serializer = AvroSerializer(schema_registry_client,
+                                 schema_str,
+                                 to_dict=None)
+# ------------------------
+
+# 4. Update the producer configuration
+producer_config = {
+    'bootstrap.servers': 'localhost:9092',
+    'key.serializer': string_serializer,
+    'value.serializer': avro_serializer
+}
+
+# 5. Use SerializingProducer
+producer = SerializingProducer(producer_config)
+
+print(f"Reading Parquet file from {DATA_PATH}...")
+try:
+    trips = pl.read_parquet(DATA_PATH)
+except FileNotFoundError:
+    print(f"ERROR: Data file not found at {DATA_PATH}")
+    exit(1)
+
+trips_subset = trips.select(["VendorID", "passenger_count", "total_amount"])
+print("File read successfully. Starting to stream AVRO data...")
+
+# 6. Iterate and produce records
+for row in trips_subset.to_dicts():
     try:
-        # Convert row to JSON string - Kafka messages are key/value pairs
-        # We'll use the vendor ID as the key and the full row as the value
-        key = str(row['VendorID'])
-        value = json.dumps(row, default=str) # Use default=str for datetime objects
-
-        # Produce the message
-        p.produce(TOPIC_NAME, key=key.encode('utf-8'), value=value.encode('utf-8'))
-
-        # p.poll(0) is required for triggering delivery callbacks
-        p.poll(0)
-
-        print(f"Produced message with key '{key}': {value}")
-
-        # Simulate a real-time stream by waiting a bit
-        time.sleep(0.1)
-
+        producer.produce(topic=TOPIC_NAME, value=row, key=str(row['VendorID']))
+        producer.poll(0)
     except BufferError:
-        print(f"Local producer queue is full ({len(p)} messages awaiting delivery): flushing...")
-        p.flush()
+        print("Buffer full, flushing...")
+        producer.flush()
     except Exception as e:
         print(f"An error occurred: {e}")
+        producer.flush()
 
 print("Finished streaming all data. Flushing final messages...")
-# Wait for any outstanding messages to be delivered and delivery reports received.
-p.flush()
+producer.flush()
