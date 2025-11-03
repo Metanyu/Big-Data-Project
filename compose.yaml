@@ -35,23 +35,42 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
       KAFKA_LOG_DIRS: "/tmp/kraft-combined-logs"
       CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
-  schema-registry:
-    image: confluentinc/cp-schema-registry:7.6.1
-    container_name: schema-registry
+
+  cassandra:
+    image: cassandra:4.1
+    container_name: cassandra
     ports:
-      - "8081:8081" # Expose Schema Registry on port 8081
-    depends_on:
-      - broker
+      - "9042:9042"
     environment:
-      # Connect the registry to the internal Kafka listener
-      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'PLAINTEXT://broker:29092'
-      SCHEMA_REGISTRY_HOST_NAME: 'schema-registry'
-      SCHEMA_REGISTRY_LISTENERS: 'http://0.0.0.0:8081'
-    # If your application exposes a port, uncomment the following lines and change
-    # the port numbers as needed. The first number is the host port and the second
-    # is the port inside the container.
-    # ports:
-    #   - 8080:8080
+      - CASSANDRA_CLUSTER_NAME=TaxiCluster
+      - CASSANDRA_DC=datacenter1
+      - CASSANDRA_RACK=rack1
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+      - ./cassandra:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "cqlsh", "-e", "describe keyspaces"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - cassandra
+
+volumes:
+  cassandra_data:
+  grafana_data:
 
     # The commented out section below is an example of how to define a PostgreSQL
     # database that your application can use. `depends_on` tells Docker Compose to
