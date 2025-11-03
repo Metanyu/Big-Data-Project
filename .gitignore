@@ -1,27 +1,43 @@
-**/.DS_Store
-**/__pycache__
-**/.venv
-**/.classpath
-**/.env
-**/.git
-**/.project
-**/.settings
-**/.toolstarget
-**/.vs
-**/.vscode
-**/*.*proj.user
-**/*.dbmdl
-**/*.jfm
-**/bin
-**/charts
-**/docker-compose*
-**/compose.y*ml
-**/Dockerfile*
-**/node_modules
-**/npm-debug.log
-**/obj
-**/secrets.dev.yaml
-**/values.dev.yaml
-LICENSE
-data
-kafka/kafka_data
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+.python-version
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints
+*.ipynb_checkpoints
+
+# Project specific - Runtime data (DO NOT COMMIT)
+data/*.parquet
+data/*.csv
+kafka/kafka_data/
+checkpoint/*/
+*.log
+
+# Docker runtime
+.env
+
+# Spark
+metastore_db/
+derby.log
+spark-warehouse/
+
+# Temporary files
+*.tmp
+*.bak
+.cache/
