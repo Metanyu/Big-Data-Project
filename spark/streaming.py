@@ -78,8 +78,8 @@ parsed_df = kafka_df.select(
     col("timestamp").alias("kafka_timestamp")
 ).select("data.*", "kafka_timestamp")
 
-# print schema (do not wrap with print())
-parsed_df.printSchema()
+# # print schema (do not wrap with print())
+# parsed_df.printSchema()
 
 # ---------- event time ----------
 df_with_event_time = parsed_df.withColumn(
