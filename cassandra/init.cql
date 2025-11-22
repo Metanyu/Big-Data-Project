@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS trip_aggregations_hourly (
 );
 
 
+
 -- 1. Demand & Revenue Table
 -- Query: Group by window (hour), zone, peak_category
 CREATE TABLE IF NOT EXISTS demand_dynamics (
@@ -67,12 +68,12 @@ CREATE TABLE IF NOT EXISTS operational_efficiency (
 ) WITH CLUSTERING ORDER BY (window_start DESC);
 
 -- 3. Rider Behavior Table
--- Query: Group by window (hour), payment_type, distance_bucket
+-- Query: Group by window (hour), payment_type, distance_category
 CREATE TABLE IF NOT EXISTS rider_behavior (
     window_start TIMESTAMP,
     payment_type BIGINT,
-    distance_bucket TEXT,
+    distance_category TEXT,
     total_trips BIGINT,
     avg_tip_ratio DOUBLE,
-    PRIMARY KEY ((payment_type), window_start, distance_bucket)
+    PRIMARY KEY ((payment_type), window_start, distance_category)
 ) WITH CLUSTERING ORDER BY (window_start DESC);
