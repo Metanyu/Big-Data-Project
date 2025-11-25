@@ -85,3 +85,5 @@ CREATE TABLE learn_cassandra.users_by_country_sorted_by_age_asc (
 When designing a data model in Cassandra, you should start with the queries you want to support. This is different from traditional relational databases, where you typically start with the data and its relationships. In Cassandra, you should denormalize your data and create tables that are optimized for your specific queries.
 ## 2. Cassandra expensive in join or query across multiple partitions
 Cassandra does not support joins or complex queries across multiple partitions. As a trade-off for its scalability and performance, you should design your data model to avoid these operations: put all the data you need for a query in a single partition; choose partition keys that support your query patterns; use clustering columns to sort and filter data within a partition.
+
+Orginal blog: https://www.freecodecamp.org/news/the-apache-cassandra-beginner-tutorial/
