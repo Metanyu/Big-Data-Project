@@ -33,7 +33,9 @@ CHECKPOINT_PATH_DICT = {
 }
 
 # 7ax1 z0n3 100kup from: https://d37ci6vzurychx.cloudfront.net/misc/taxi_zone_lookup.csv
-ZONE_LOOKUP_PATH = os.getenv("ZONE_LOOKUP_PATH", "taxi_zone_lookup.csv")
+SCRIPT_DIR = os.path.dirname(__file__)
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..'))
+ZONE_LOOKUP_PATH = os.path.join(PROJECT_ROOT, "spark", "taxi_zone_lookup.csv")
 
 
 # ---------- Schemas ----------
