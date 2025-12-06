@@ -42,3 +42,4 @@ spark-warehouse/
 *.bak
 .cache/
 *:Zone.Identifier
+*/bin

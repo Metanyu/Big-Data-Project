@@ -283,7 +283,7 @@
         {
           "queryType": "query",
           "rawQuery": true,
-          "target": "SELECT pickup_zone AS zone, total_revenue FROM demand_dynamics WHERE window_start = ${window_start} LIMIT 10;",
+          "target": "SELECT pickup_zone AS zone, total_revenue FROM demand_dynamics WHERE window_start = ${window_start} ALLOW FILTERING LIMIT 10;",
           "refId": "A"
         }
       ],
@@ -340,7 +340,7 @@
         {
           "queryType": "query",
           "rawQuery": true,
-          "target": "SELECT window_start AS time, pickup_zone AS zone, total_trips FROM demand_dynamics WHERE window_start >= $__timeFrom() AND window_start <= $__timeTo();",
+          "target": "SELECT window_start AS time, pickup_zone AS zone, total_trips FROM demand_dynamics WHERE window_start >= $__timeFrom() AND window_start <= $__timeTo() ALLOW FILTERING;",
           "refId": "A"
         }
       ],
@@ -384,7 +384,7 @@
         {
           "queryType": "query",
           "rawQuery": true,
-          "target": "SELECT window_start, pickup_zone, avg_speed, avg_duration_sec FROM operational_efficiency WHERE window_start >= $__timeFrom() AND window_start <= $__timeTo() LIMIT 200;",
+          "target": "SELECT window_start, pickup_zone, avg_speed, avg_duration_sec FROM operational_efficiency WHERE window_start >= $__timeFrom() AND window_start <= $__timeTo() LIMIT 200 ALLOW FILTERING;",
           "refId": "A"
         }
       ],
@@ -406,7 +406,7 @@
         "name": "pickup_zone",
         "type": "query",
         "label": "Pickup zone",
-        "query": "SELECT DISTINCT pickup_zone FROM demand_dynamics LIMIT 500;",
+        "query": "SELECT DISTINCT pickup_zone FROM demand_dynamics LIMIT 500 ALLOW FILTERING;",
         "datasource": "Cassandra",
         "multi": true,
         "includeAll": true,
@@ -417,7 +417,7 @@
         "name": "vendor_id",
         "type": "query",
         "label": "Vendor ID",
-        "query": "SELECT DISTINCT vendor_id FROM trip_aggregations_5min LIMIT 100;",
+        "query": "SELECT DISTINCT vendor_id FROM trip_aggregations_5min LIMIT 100 ALLOW FILTERING;",
         "datasource": "Cassandra",
         "multi": false,
         "includeAll": true,
