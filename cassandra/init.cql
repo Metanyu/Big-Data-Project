@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS trip_aggregations_hourly (
 CREATE TABLE IF NOT EXISTS demand_dynamics (
     window_start TIMESTAMP,
     window_end TIMESTAMP,
-    pickup_zone INT,
+    pickup_zone TEXT,
     peak_category TEXT,
     total_trips BIGINT,
     total_revenue DOUBLE,
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS demand_dynamics (
 -- Query: Group by window (30 min), zone
 CREATE TABLE IF NOT EXISTS operational_efficiency (
     window_start TIMESTAMP,
-    pickup_zone INT,
+    pickup_zone TEXT,
     avg_speed DOUBLE,
     avg_duration_sec DOUBLE,
     avg_occupancy DOUBLE,
