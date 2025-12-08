@@ -269,11 +269,49 @@ def write_to_cassandra(batch_df, batch_id, table_name):
         .options(table=table_name, keyspace=CASSANDRA_KEYSPACE)
         .save())
 
+def write_demand_with_timeseries(batch_df, batch_id):
+    """Write to both demand_dynamics and demand_timeseries tables"""
+    if batch_df.rdd.isEmpty():
+        return
+    
+    # Write to original table
+    write_to_cassandra(batch_df, batch_id, "demand_dynamics")
+    
+    # Prepare and write to time-series table
+    timeseries_df = batch_df.withColumn(
+        "time_bucket", 
+        lit("all")  # Single partition for time-series queries
+    ).select(
+        "time_bucket", "window_start", "pickup_zone", 
+        "total_trips", "total_revenue", "avg_fare_per_mile"
+    )
+    
+    write_to_cassandra(timeseries_df, batch_id, "demand_timeseries")
+    
+def write_ops_with_timeseries(batch_df, batch_id):
+    """Write to both operational_efficiency and ops_timeseries tables"""
+    if batch_df.rdd.isEmpty():
+        return
+    
+    # Write to original table
+    write_to_cassandra(batch_df, batch_id, "operational_efficiency")
+    
+    # Prepare and write to time-series table
+    timeseries_df = batch_df.withColumn(
+        "time_bucket",
+        lit("all")
+    ).select(
+        "time_bucket", "window_start", "pickup_zone",
+        "avg_speed", "avg_duration_sec", "avg_occupancy"
+    )
+    
+    write_to_cassandra(timeseries_df, batch_id, "ops_timeseries")
+
 print("Starting Demand Stream...")
 query_demand = (
     demand_agg.writeStream
     .outputMode("update")
-    .foreachBatch(lambda df, id: write_to_cassandra(df, id, "demand_dynamics"))
+    .foreachBatch(write_demand_with_timeseries)
     .option("checkpointLocation", CHECKPOINT_PATH_DICT['demand'])
     .start()
 )
@@ -282,7 +320,7 @@ print("Starting Ops Stream...")
 query_ops = (
     ops_agg.writeStream
     .outputMode("update")
-    .foreachBatch(lambda df, id: write_to_cassandra(df, id, "operational_efficiency"))
+    .foreachBatch(write_ops_with_timeseries)
     .option("checkpointLocation", CHECKPOINT_PATH_DICT['ops'])
     .start()
 )
