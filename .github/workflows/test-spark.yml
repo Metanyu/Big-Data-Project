@@ -87,8 +87,8 @@ jobs:
         "
 
     # 4. Start Infrastructure
-    # - name: Wait for Services (Sleep)
-    #   run: sleep 45 # Give Cassandra and Kafka time to elect leaders
+    - name: Wait for Services (Sleep)
+      run: sleep 30 # Give Cassandra and Kafka time to elect leaders
 
     - name: Initialize Cassandra Schema
       run: docker exec -i cassandra cqlsh < cassandra/init.cql
