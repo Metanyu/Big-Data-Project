@@ -28,7 +28,11 @@ jobs:
 
     - name: Install uv
       uses: astral-sh/setup-uv@v1
-    
+
+    # 1.5. Spin up Docker so we don't have to wait
+    - name: Start Docker Services
+      run: docker compose up -d
+
     # 2. Install Spark (Cached to speed up runs)
     - name: Cache Spark
       id: cache-spark
@@ -83,11 +87,8 @@ jobs:
         "
 
     # 4. Start Infrastructure
-    - name: Start Docker Services
-      run: docker compose up -d
-
-    - name: Wait for Services (Sleep)
-      run: sleep 45 # Give Cassandra and Kafka time to elect leaders
+    # - name: Wait for Services (Sleep)
+    #   run: sleep 45 # Give Cassandra and Kafka time to elect leaders
 
     - name: Initialize Cassandra Schema
       run: docker exec -i cassandra cqlsh < cassandra/init.cql
