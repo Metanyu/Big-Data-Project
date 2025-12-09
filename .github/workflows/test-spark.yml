@@ -36,7 +36,7 @@ jobs:
     # 1.6. Ownership fix
     - name: chown fix for Broker
       run: |
-        mkdir kafka/kafka_data
+        mkdir -p kafka/kafka_data
         sudo chown -R $USER:$USER kafka/kafka_data/
 
     # 2. Install Spark (Cached to speed up runs)
