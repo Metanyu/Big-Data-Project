@@ -59,6 +59,7 @@ jobs:
         # Create data directory
         mkdir -p data
         # Run a small script to create a valid parquet file so we don't download 500MB
+        uv add pandas numpy pyarrow
         uv run python -c "
         import pandas as pd
         import numpy as np
