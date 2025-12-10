@@ -4,10 +4,14 @@
 
 ```bash
 # Perpetually streaming
-spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.13:3.5.1,com.datastax.spark:spark-cassandra-connector_2.13:3.5.1 spark/streaming.py stream
+spark-submit \
+--packages org.apache.spark:spark-sql-kafka-0-10_2.13:3.5.1,com.datastax.spark:spark-cassandra-connector_2.13:3.5.1 \
+spark/streaming.py --mode stream
 
 # Periodic batch job (dont't run these 2 in the same terminal)
-spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.13:3.5.1,com.datastax.spark:spark-cassandra-connector_2.13:3.5.1 spark/streaming.py batch
+spark-submit \
+--packages org.apache.spark:spark-sql-kafka-0-10_2.13:3.5.1,com.datastax.spark:spark-cassandra-connector_2.13:3.5.1 \
+spark/streaming.py --mode batch
 
 ```
 

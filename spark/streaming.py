@@ -197,7 +197,7 @@ def write_cassandra(df, table_name, mode, epoch_id=None):
 # ---------- 6. Main Execution Logic ----------
 def main():
     parser = argparse.ArgumentParser(description="Unified Spark Processor")
-    parser.add_argument("mode", choices=["stream", "batch"], default="stream", help="Execution mode")
+    parser.add_argument("--mode", choices=["stream", "batch"], default="stream", help="Execution mode (default: %(default)s)")
     args = parser.parse_args()
 
     spark = get_spark_session(args.mode)
