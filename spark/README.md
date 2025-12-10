@@ -1,70 +1,96 @@
-## NYC Taxi Data Streaming Pipeline
+## NYC Taxi Data Streaming (and occasionally Batch Processing) Pipeline
 
-Sẽ còn phải sửa nhiều phụ thuộc viz 😔 Equivalent `init.cql` for Cassandra I put in this very same directory.
+### How do I run?
 
-Nguồn dựng feature: [Mễ's nooootion](https://www.notion.so/Erm-Features-and-stuff-2aa06a8a8ce2807eb4bdcf764aa39399)
+```bash
+# Perpetually streaming
+spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.13:3.5.1,com.datastax.spark:spark-cassandra-connector_2.13:3.5.1 spark/streaming.py stream
 
-### Architecture
+# Periodic batch job (dont't run these 2 in the same terminal)
+spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.13:3.5.1,com.datastax.spark:spark-cassandra-connector_2.13:3.5.1 spark/streaming.py batch
 
-- Source: Kafka Topic (taxi-trips)
-- Processing: Apache Spark (Structured Streaming)
-- Sink: Cassandra Keyspace (taxi_streaming)
+```
 
-### Data Pipeline Details
+### Why many files here?
 
-1. Data Cleaning & Rules
+`streaming.py` is the only one you should care about. `streaming_old.py` is the original script for the now deprecated Cassandra schema, kept for config reference point.
 
-- Trips with positve mileage, cap at 1000 miles.
-- Passenger count must be between 1 and 9.
-- Trip Duration must be between 1 minute and 4 hours.
-- Fares must be non-negative.
-- Unknown Zones: PULocationID must be valid (< 264).
+### What does that script do?
 
-2. Feature Engineering
+Transformations and aggregations adhering to these visualization requirements:
 
-- `pickup_zone`: Resolves ID to human-readable zone name (e.g., "JFK Airport") via Broadcast Join.
-- `speed_mph`: Calculated average speed based on distance/duration.
-- `peak_category`:
-    - `AM Rush`: 7 AM - 10 AM (Weekdays)
-    - `PM Rush`: 4 PM - 8 PM (Weekdays)
-    - `Off-Peak`: All other times
-- `distance_category`:
-    - `Short (<2m)`
-    - `Medium (2-10m)`
-    - `Long (>10m)`
+> [!tip]
+>
+> Viz 1-5 **Zone Performance:** time series with short aggregation (5m, 1h, 1d), mostly grouped by zone.
+>
+> Viz 6 **Global KPIs:** stat cards with short aggregation (5m, 1h, 1d).
+>
+> Viz 7 **Peak Analysis:** stacked area or bar to observe rush sccumulation/transition, longer agg (15m, 1d).
+>
+> Viz 8 **Payment Analysis:** payment type trend (or to detect anomaly i.e. payment gateway down), longer agg (15m, 1d).
 
-3. Aggregation Tables (Cassandra)
+1. ?
 
-**Table 1:** demand_dynamics
+Type: Time-series line chart with multiple series
 
-**Goal:** Analyze high-level demand and revenue trends per zone.
+Metrics:
+Total revenue per time window (hourly)
+Grouped by top 5-7 zones
 
-- Granularity: Hourly Windows
-- Key: (pickup_zone, peak_category)
-- Fields:
-    - window_start, window_end: Time range.
-    - total_trips: Volume of rides.
-    - total_revenue: Sum of fares + surcharges + tips.
-    - avg_fare_per_mile: Efficiency metric.
-    - avg_tip_ratio: Tip / Total amount.
+2. Trip Demand by Zone (Line Chart)
 
-**Table 2:** operational_efficiency
+Type: Multi-line time-series chart
 
-**Goal:** Monitor traffic conditions and fleet efficiency.
+Metrics:
+Trip count per time window
+One line per major zone (airports, business districts, tourist areas)
 
-- Granularity: 30-minute Windows
-- Key: pickup_zone
-- Fields:
-    - avg_speed: Average MPH in that zone (detects traffic jams).
-    - avg_duration_sec: How long trips take starting from this zone.
-    - avg_occupancy: Passenger efficiency.
+3. Top Zones by Total Revenue (Bar Chart)
 
-**Table 3:** rider_behavior
+Type: Horizontal bar chart (sorted descending)
 
-**Goal:** Understand how payment methods and trip lengths correlate.
+Metrics:
+Total accumulated revenue per zone
+Top 10 zones
 
-- Granularity: Hourly Windows
-- Key: (payment_type, distance_category)
-- Fields:
-    - total_trips: Count of rides.
-    - avg_tip_ratio: Do people tip better on long rides or credit card payments?
+4. Average Fare Per Mile by Zone (Line Chart)
+
+Type: Time-series line chart
+
+Metrics:
+Fare amount / trip distance ratio
+Tracked over time for top 3-5 zones
+
+5. Operational Efficiency: Average Speed (Line Chart)
+
+Type: Time-series line chart
+
+Metrics:
+Average speed (mph) per time window
+By zone
+
+6. Real-Time KPIs (Stat Panels)
+
+Type: Single-value stat cards
+
+Metrics:
+Total trips (count)
+Total revenue (currency)
+Average speed (mph)
+Average tip rate (percentage)
+
+7. Peak vs Off-Peak Distribution (Stacked Area/Bar)
+
+Type: Stacked area chart or grouped bar chart
+
+Metrics:
+Trip count by peak category (AM Rush, PM Rush, Off-Peak)
+Over time or by zone
+
+8. Payment Type Distribution (Pie/Donut Chart)
+
+Type: Pie or donut chart
+
+Metrics:
+Trip count by payment type (credit, cash, etc.)
+Average tip ratio per payment type
