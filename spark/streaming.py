@@ -21,7 +21,7 @@ CASSANDRA_HOST = os.getenv("CASSANDRA_HOST", "localhost")
 CASSANDRA_KEYSPACE = os.getenv("CASSANDRA_KEYSPACE", "taxi_streaming")
 CHECKPOINT_ROOT = os.getenv("CHECKPOINT_ROOT", "/tmp/spark_checkpoints")
 
-# Lookup CSV path
+# 7ax1 z0n3 100kup from: https://d37ci6vzurychx.cloudfront.net/misc/taxi_zone_lookup.csv
 SCRIPT_DIR = os.path.dirname(__file__)
 PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..'))
 ZONE_LOOKUP_PATH = os.path.join(PROJECT_ROOT, "spark", "taxi_zone_lookup.csv")
@@ -57,8 +57,6 @@ spark = (
     .config("spark.cassandra.connection.host", CASSANDRA_HOST)
     .config("spark.cassandra.connection.port", "9042")
     .config("spark.sql.streaming.checkpointLocation", CHECKPOINT_ROOT)
-    # .config("spark.sql.streaming.stateStore.providerClass", "org.apache.spark.sql.execution.streaming.state.RocksDBStateStoreProvider")
-    # .config("spark.sql.streaming.stateStore.rocksdb.changelogCheckpointing.enabled", "true")
     .master("local[*]")
     .getOrCreate()
 )
@@ -210,22 +208,17 @@ def write_cassandra(df, epoch_id, table):
 
 # List of desired streams: (Type, Interval, Table Suffix)
 stream_configs = [
-    # 1. ZONE PERFORMANCE: 5m, 1h, 1d
+    # 1. ZONE PERFORMANCE: 5m and 1h
     ("zone", "5 minutes", "_5m"),
     ("zone", "1 hour", "_1h"),
-    ("zone", "1 day", "_1d"),
     
-    # 2. GLOBAL KPIs: 5m, 1h, 1d
+    # 2. GLOBAL KPIs: 5m and 1h
     ("global", "5 minutes", "_5m"),
     ("global", "1 hour", "_1h"),
-    ("global", "1 day", "_1d"),
 
-    # 3. PEAK & PAYMENT: 15m and 1d
+    # 3. PEAK & PAYMENT: 15m only
     ("peak", "15 minutes", "_15m"),
-    ("peak", "1 day", "_1d"),
-
-    ("payment", "15 minutes", "_15m"),
-    ("payment", "1 day", "_1d")
+    ("payment", "15 minutes", "_15m")
 ]
 
 streams = []
