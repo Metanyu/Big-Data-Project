@@ -1,5 +1,7 @@
 import os
+import sys
 import logging
+import argparse
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     col, from_json, window, avg, sum as spark_sum, count,
@@ -10,11 +12,10 @@ from pyspark.sql.types import (
     DoubleType, TimestampType, StringType
 )
 
-# ---------- Logging Setup ----------
+# ---------- Config ----------
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ---------- Config ----------
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "taxi-trips")
 CASSANDRA_HOST = os.getenv("CASSANDRA_HOST", "localhost")
@@ -26,7 +27,7 @@ SCRIPT_DIR = os.path.dirname(__file__)
 PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..'))
 ZONE_LOOKUP_PATH = os.path.join(PROJECT_ROOT, "spark", "taxi_zone_lookup.csv")
 
-# ---------- Schemas ----------
+# ---------- Schema ----------
 taxi_schema = StructType([
     StructField("VendorID", IntegerType(), True),
     StructField("tpep_pickup_datetime", TimestampType(), True),
@@ -50,214 +51,219 @@ taxi_schema = StructType([
     StructField("cbd_congestion_fee", DoubleType(), True)
 ])
 
-# ---------- Spark Session ----------
-spark = (
-    SparkSession.builder
-    .appName("NYC Taxi Trip Streaming Pipeline")
-    .config("spark.cassandra.connection.host", CASSANDRA_HOST)
-    .config("spark.cassandra.connection.port", "9042")
-    .config("spark.sql.streaming.checkpointLocation", CHECKPOINT_ROOT)
-    .master("local[*]")
-    .getOrCreate()
-)
-spark.sparkContext.setLogLevel("WARN")
-
-# ---------- Read from Kafka ----------
-kafka_df = (
-    spark.readStream
-    .format("kafka")
-    .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS)
-    .option("subscribe", KAFKA_TOPIC)
-    .option("startingOffsets", "latest") 
-    .load()
-)
-
-parsed_df = kafka_df.select(
-    from_json(col("value").cast("string"), taxi_schema).alias("data"),
-    col("timestamp").alias("kafka_timestamp")
-).select("data.*", "kafka_timestamp")
-
-# ---------- Feature Engineering ----------
-# 1. Basic Cleaning & Durations
-df_processed = parsed_df.withColumn(
-    "trip_duration_sec", 
-    (unix_timestamp("tpep_dropoff_datetime") - unix_timestamp("tpep_pickup_datetime"))
-).filter(
-    (col("trip_distance") > 0) & (col("trip_distance") < 500) &
-    (col("passenger_count") > 0) & (col("total_amount") > 0) &
-    (col("trip_duration_sec") > 60) & (col("trip_duration_sec") < 14400)
-)
-
-# 2. Event Time & Metrics
-df_enriched = df_processed.withColumn(
-    "event_time",
-    when(col("tpep_pickup_datetime").isNotNull(), col("tpep_pickup_datetime"))
-    .otherwise(col("kafka_timestamp"))
-).withWatermark("event_time", "10 minutes") \
-.withColumn("pickup_hour", hour("event_time")) \
-.withColumn("pickup_weekday", dayofweek("event_time")) \
-.withColumn(
-    "speed_mph",
-    when(col("trip_duration_sec") > 0, (col("trip_distance") / (col("trip_duration_sec") / 3600)))
-    .otherwise(lit(0.0))
-).withColumn(
-    "fare_per_mile",
-    when(col("trip_distance") > 0, (col("fare_amount") / col("trip_distance")))
-    .otherwise(lit(0.0))
-).withColumn(
-    "tip_ratio",
-    when(col("total_amount") > 0, (col("tip_amount") / col("total_amount")))
-    .otherwise(lit(0.0))
-).withColumn(
-    "is_weekend", 
-    col("pickup_weekday").isin([1, 7]) # 1=Sun, 7=Sat
-).withColumn(
-    "peak_category",
-    when((~col("is_weekend")) & (col("pickup_hour").between(16, 19)), lit("PM Rush"))
-    .when((~col("is_weekend")) & (col("pickup_hour").between(7, 9)) , lit("AM Rush"))
-    .otherwise(lit("Off-Peak"))
-).withColumn(
-    "payment_desc",
-    when(col("payment_type") == 1, "Credit Card")
-    .when(col("payment_type") == 2, "Cash")
-    .otherwise("Other")
-)
-
-# 3. Zone Lookup Join
-try:
-    zone_df = spark.read.option("header", "true").option("inferSchema", "true").csv(ZONE_LOOKUP_PATH)
-    zone_lookup = zone_df.select(
-        col("LocationID").cast("int").alias("lookup_id"),
-        col("Zone").alias("pickup_zone")
-    )
+# ---------- 1. Initialization Helper ----------
+def get_spark_session(mode):
+    builder = SparkSession.builder \
+        .appName(f"NYC Taxi Pipeline [{mode.upper()}]") \
+        .config("spark.cassandra.connection.host", CASSANDRA_HOST) \
+        .config("spark.cassandra.connection.port", "9042")
     
-    final_stream = df_enriched.join(
-        broadcast(zone_lookup),
-        df_enriched.PULocationID == zone_lookup.lookup_id,
-        "left"
-    ).drop("lookup_id").fillna({"pickup_zone": "Unknown"})
-except Exception as e:
-    logger.warning(f"Zone lookup failed: {e}")
-    final_stream = df_enriched.withColumn("pickup_zone", lit("Unknown"))
+    if mode == "stream":
+        builder = builder.config("spark.sql.streaming.checkpointLocation", CHECKPOINT_ROOT)
+    
+    return builder.master("local[*]").getOrCreate()
 
+# ---------- 2. Data Reader Helper ----------
+def read_kafka(spark, mode):
+    if mode == "stream":
+        logger.info("Initializing Kafka ReadStream...")
+        return spark.readStream \
+            .format("kafka") \
+            .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS) \
+            .option("subscribe", KAFKA_TOPIC) \
+            .option("startingOffsets", "latest") \
+            .load()
+    else:
+        logger.info("Initializing Kafka Batch Read...")
+        return spark.read \
+            .format("kafka") \
+            .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS) \
+            .option("subscribe", KAFKA_TOPIC) \
+            .option("startingOffsets", "earliest") \
+            .option("endingOffsets", "latest") \
+            .load()
 
-# ---------- Modular Aggregation Logic ----------
+# ---------- 3. Unified Processing Logic ----------
+def process_data(df, spark, mode):
+    # Parse JSON
+    parsed_df = df.select(
+        from_json(col("value").cast("string"), taxi_schema).alias("data"),
+        col("timestamp").alias("kafka_timestamp")
+    ).select("data.*", "kafka_timestamp")
 
-def get_zone_agg(df, interval):
-    """Returns dataframe grouped by Zone + Time Window"""
-    return df \
-        .groupBy(window(col("event_time"), interval), col("pickup_zone")) \
-        .agg(
-            count("*").alias("total_trips"),
-            spark_sum("total_amount").alias("total_revenue"),
-            avg("fare_per_mile").alias("avg_fare_per_mile"),
-            avg("speed_mph").alias("avg_speed_mph"),
-            avg("trip_duration_sec").alias("avg_duration_sec")
-        ).select(
-            col("window.start").alias("window_start"),
-            col("window.end").alias("window_end"),
-            "pickup_zone", "total_trips", "total_revenue", 
-            "avg_fare_per_mile", "avg_speed_mph", "avg_duration_sec"
+    # Basic Feature Engineering
+    df_processed = parsed_df.withColumn(
+        "trip_duration_sec", 
+        (unix_timestamp("tpep_dropoff_datetime") - unix_timestamp("tpep_pickup_datetime"))
+    ).filter(
+        (col("trip_distance") > 0) & (col("trip_distance") < 500) &
+        (col("passenger_count") > 0) & (col("total_amount") > 0) &
+        (col("trip_duration_sec") > 60) & (col("trip_duration_sec") < 14400)
+    )
+
+    df_enriched = df_processed.withColumn(
+        "event_time",
+        when(col("tpep_pickup_datetime").isNotNull(), col("tpep_pickup_datetime"))
+        .otherwise(col("kafka_timestamp"))
+    )
+
+    # CONDITIONAL: Apply Watermark only for Streaming
+    if mode == "stream":
+        df_enriched = df_enriched.withWatermark("event_time", "10 minutes")
+
+    # Metrics Calculation
+    df_final = df_enriched.withColumn("pickup_hour", hour("event_time")) \
+        .withColumn("pickup_weekday", dayofweek("event_time")) \
+        .withColumn(
+            "speed_mph",
+            when(col("trip_duration_sec") > 0, (col("trip_distance") / (col("trip_duration_sec") / 3600)))
+            .otherwise(lit(0.0))
+        ).withColumn(
+            "fare_per_mile",
+            when(col("trip_distance") > 0, (col("fare_amount") / col("trip_distance")))
+            .otherwise(lit(0.0))
+        ).withColumn(
+            "tip_ratio",
+            when(col("total_amount") > 0, (col("tip_amount") / col("total_amount")))
+            .otherwise(lit(0.0))
+        ).withColumn(
+            "is_weekend", 
+            col("pickup_weekday").isin([1, 7])
+        ).withColumn(
+            "peak_category",
+            when((~col("is_weekend")) & (col("pickup_hour").between(16, 19)), lit("PM Rush"))
+            .when((~col("is_weekend")) & (col("pickup_hour").between(7, 9)) , lit("AM Rush"))
+            .otherwise(lit("Off-Peak"))
+        ).withColumn(
+            "payment_desc",
+            when(col("payment_type") == 1, "Credit Card")
+            .when(col("payment_type") == 2, "Cash")
+            .otherwise("Other")
         )
+
+    # Zone Lookup (Broadcast Join)
+    try:
+        zone_df = spark.read.option("header", "true").option("inferSchema", "true").csv(ZONE_LOOKUP_PATH)
+        zone_lookup = zone_df.select(col("LocationID").cast("int").alias("lid"), col("Zone").alias("pickup_zone"))
+        df_final = df_final.join(broadcast(zone_lookup), df_final.PULocationID == zone_lookup.lid, "left") \
+            .drop("lid").fillna({"pickup_zone": "Unknown"})
+    except Exception as e:
+        logger.warning(f"Zone lookup failed: {e}")
+        df_final = df_final.withColumn("pickup_zone", lit("Unknown"))
+        
+    return df_final
+
+# ---------- 4. Aggregation Functions ----------
+def get_zone_agg(df, interval):
+    return df.groupBy(window(col("event_time"), interval), col("pickup_zone")).agg(
+        count("*").alias("total_trips"),
+        spark_sum("total_amount").alias("total_revenue"),
+        avg("fare_per_mile").alias("avg_fare_per_mile"),
+        avg("speed_mph").alias("avg_speed_mph"),
+        avg("trip_duration_sec").alias("avg_duration_sec")
+    ).select(col("window.start").alias("window_start"), col("window.end").alias("window_end"), "pickup_zone", "total_trips", "total_revenue", "avg_fare_per_mile", "avg_speed_mph", "avg_duration_sec")
 
 def get_global_agg(df, interval):
-    """Returns dataframe grouped by Time Window only"""
-    return df \
-        .groupBy(window(col("event_time"), interval)) \
-        .agg(
-            count("*").alias("total_trips"),
-            spark_sum("total_amount").alias("total_revenue"),
-            avg("speed_mph").alias("avg_speed_mph"),
-            avg("tip_ratio").alias("avg_tip_ratio")
-        ).withColumn("shard_id", lit("1")) \
-        .select(
-            "shard_id",
-            col("window.start").alias("window_start"),
-            col("window.end").alias("window_end"),
-            "total_trips", "total_revenue", "avg_speed_mph", "avg_tip_ratio"
-        )
+    return df.groupBy(window(col("event_time"), interval)).agg(
+        count("*").alias("total_trips"),
+        spark_sum("total_amount").alias("total_revenue"),
+        avg("speed_mph").alias("avg_speed_mph"),
+        avg("tip_ratio").alias("avg_tip_ratio")
+    ).withColumn("shard_id", lit("1")).select("shard_id", col("window.start").alias("window_start"), col("window.end").alias("window_end"), "total_trips", "total_revenue", "avg_speed_mph", "avg_tip_ratio")
 
 def get_peak_agg(df, interval):
-    """Returns dataframe grouped by Peak Category"""
-    return df \
-        .groupBy(window(col("event_time"), interval), col("peak_category")) \
-        .agg(count("*").alias("total_trips")) \
-        .select(col("window.start").alias("window_start"), "peak_category", "total_trips")
+    return df.groupBy(window(col("event_time"), interval), col("peak_category")).agg(
+        count("*").alias("total_trips")
+    ).select(col("window.start").alias("window_start"), "peak_category", "total_trips")
 
 def get_payment_agg(df, interval):
-    """Returns dataframe grouped by Payment Type"""
-    return df \
-        .groupBy(window(col("event_time"), interval), col("payment_desc").alias("payment_type")) \
-        .agg(
-            count("*").alias("total_trips"),
-            avg("tip_ratio").alias("avg_tip_ratio")
-        ).select(col("window.start").alias("window_start"), "payment_type", "total_trips", "avg_tip_ratio")
+    return df.groupBy(window(col("event_time"), interval), col("payment_desc").alias("payment_type")).agg(
+        count("*").alias("total_trips"), avg("tip_ratio").alias("avg_tip_ratio")
+    ).select(col("window.start").alias("window_start"), "payment_type", "total_trips", "avg_tip_ratio")
 
-
-# ---------- Stream Sinks & Execution Loop ----------
-
-def write_cassandra(df, epoch_id, table):
-    if df.rdd.isEmpty():
-        return
-    logger.info(f"Writing batch {epoch_id} to {table}")
+# ---------- 5. Writer Helpers ----------
+def write_cassandra(df, table_name, mode, epoch_id=None):
+    if df.rdd.isEmpty(): return
+    
+    msg = f"Writing batch {epoch_id} to {table_name}" if epoch_id else f"Writing BATCH data to {table_name}"
+    logger.info(msg)
+    
     df.write \
         .format("org.apache.spark.sql.cassandra") \
         .mode("append") \
-        .options(table=table, keyspace=CASSANDRA_KEYSPACE) \
+        .options(table=table_name, keyspace=CASSANDRA_KEYSPACE) \
         .save()
 
-# List of desired streams: (Type, Interval, Table Suffix)
-stream_configs = [
-    # 1. ZONE PERFORMANCE: 5m and 1h
-    ("zone", "5 minutes", "_5m"),
-    ("zone", "1 hour", "_1h"),
-    
-    # 2. GLOBAL KPIs: 5m and 1h
-    ("global", "5 minutes", "_5m"),
-    ("global", "1 hour", "_1h"),
+# ---------- 6. Main Execution Logic ----------
+def main():
+    parser = argparse.ArgumentParser(description="Unified Spark Processor")
+    parser.add_argument("mode", choices=["stream", "batch"], default="stream", help="Execution mode")
+    args = parser.parse_args()
 
-    # 3. PEAK & PAYMENT: 15m only
-    ("peak", "15 minutes", "_15m"),
-    ("payment", "15 minutes", "_15m")
-]
+    spark = get_spark_session(args.mode)
+    spark.sparkContext.setLogLevel("WARN")
 
-streams = []
-print("Initializing Streams...")
+    # 1. Read & Process
+    raw_df = read_kafka(spark, args.mode)
+    final_df = process_data(raw_df, spark, args.mode)
 
-for stream_type, interval, suffix in stream_configs:
-    
-    # 1. Generate the DataFrame based on type
-    if stream_type == "zone":
-        agg_df = get_zone_agg(final_stream, interval)
-        base_table = "zone_performance"
-    elif stream_type == "global":
-        agg_df = get_global_agg(final_stream, interval)
-        base_table = "global_kpis"
-    elif stream_type == "peak":
-        agg_df = get_peak_agg(final_stream, interval)
-        base_table = "peak_analysis"
-    elif stream_type == "payment":
-        agg_df = get_payment_agg(final_stream, interval)
-        base_table = "payment_analysis"
+    # 2. Define Execution Plan
+    if args.mode == "stream":
+        # Stream Config: (Function, Interval, Table Suffix)
+        configs = [
+            (get_zone_agg, "5 minutes", "_5m"),
+            (get_zone_agg, "1 hour", "_1h"),
+            (get_global_agg, "5 minutes", "_5m"),
+            (get_global_agg, "1 hour", "_1h"),
+            (get_peak_agg, "15 minutes", "_15m"),
+            (get_payment_agg, "15 minutes", "_15m")
+        ]
     else:
-        continue
+        # Batch Config: Always 1 Day
+        configs = [
+            (get_zone_agg, "1 day", "_1d"),
+            (get_global_agg, "1 day", "_1d"),
+            (get_peak_agg, "1 day", "_1d"),
+            (get_payment_agg, "1 day", "_1d")
+        ]
 
-    # 2. Define Table and Checkpoint
-    full_table_name = f"{base_table}{suffix}"
-    # CRITICAL: Unique checkpoint per stream type AND interval
-    checkpoint_name = f"{stream_type}{suffix}" 
-    checkpoint_path = os.path.join(CHECKPOINT_ROOT, checkpoint_name)
-
-    # 3. Start Stream
-    query = agg_df.writeStream \
-        .outputMode("update") \
-        .foreachBatch(lambda df, id, t=full_table_name: write_cassandra(df, id, t)) \
-        .option("checkpointLocation", checkpoint_path) \
-        .trigger(processingTime='10 seconds') \
-        .start()
+    # 3. Execute
+    active_streams = []
     
-    streams.append(query)
-    print(f"Started {stream_type.upper()} stream [{interval}] -> Table: {full_table_name}")
+    for agg_func, interval, suffix in configs:
+        agg_df = agg_func(final_df, interval)
+        
+        # Determine base table name from suffix naming convention
+        # Mapping: _5m/_1h/_1d -> zone_performance / global_kpis / peak_analysis / payment_analysis
+        if agg_func == get_zone_agg: base = "zone_performance"
+        elif agg_func == get_global_agg: base = "global_kpis"
+        elif agg_func == get_peak_agg: base = "peak_analysis"
+        elif agg_func == get_payment_agg: base = "payment_analysis"
+        
+        full_table = f"{base}{suffix}"
 
-print(f"Total streams running: {len(streams)}")
-spark.streams.awaitAnyTermination()
+        if args.mode == "stream":
+            # Start Streaming Query
+            ckpt = os.path.join(CHECKPOINT_ROOT, f"{base}{suffix}")
+            q = agg_df.writeStream \
+                .outputMode("update") \
+                .foreachBatch(lambda df, id, t=full_table: write_cassandra(df, t, "stream", id)) \
+                .option("checkpointLocation", ckpt) \
+                .trigger(processingTime='10 seconds') \
+                .start()
+            active_streams.append(q)
+            print(f"Started STREAM: {full_table} [{interval}]")
+        else:
+            # Run Batch Write immediately
+            print(f"Running BATCH: {full_table} [{interval}]...")
+            write_cassandra(agg_df, full_table, "batch")
+
+    if args.mode == "stream":
+        print(f"Pipeline running with {len(active_streams)} streams...")
+        spark.streams.awaitAnyTermination()
+    else:
+        print("Batch processing complete.")
+        spark.stop()
+
+if __name__ == "__main__":
+    main()
