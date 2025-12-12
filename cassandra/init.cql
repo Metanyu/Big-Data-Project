@@ -1,26 +1,51 @@
 -- Initialize Cassandra keyspace and tables for NYC Taxi Trip pipeline
 
+-- Create keyspace
 CREATE KEYSPACE IF NOT EXISTS taxi_streaming
 WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
 
+-- Use keyspace
 USE taxi_streaming;
 
--- Table for hourly aggregations (NEEDED FOR PANELS 1 & 2)
+-- Table for raw taxi trips (if you want to store raw data)
+CREATE TABLE IF NOT EXISTS taxi_trips (
+    vendor_id INT,
+    trip_timestamp TIMESTAMP,
+    passenger_count BIGINT,
+    total_amount DOUBLE,
+    PRIMARY KEY (vendor_id, trip_timestamp)
+) WITH CLUSTERING ORDER BY (trip_timestamp DESC);
+
+-- Table for windowed aggregations (5-minute windows)
+-- Using a composite partition key for better query performance
+CREATE TABLE IF NOT EXISTS trip_aggregations_5min (
+    window_start TIMESTAMP,
+    window_end TIMESTAMP,
+    vendor_id INT,
+    trip_count BIGINT,
+    avg_passenger_count DOUBLE,
+    total_revenue DOUBLE,
+    avg_fare DOUBLE,
+    PRIMARY KEY ((vendor_id), window_start)
+) WITH CLUSTERING ORDER BY (window_start DESC);
+
+-- Table for hourly aggregations
 CREATE TABLE IF NOT EXISTS trip_aggregations_hourly (
-    partition_key TEXT,
     window_start TIMESTAMP,
     window_end TIMESTAMP,
     total_trips BIGINT,
     total_revenue DOUBLE,
     avg_passengers DOUBLE,
-    PRIMARY KEY ((partition_key), window_start)
-) WITH CLUSTERING ORDER BY (window_start DESC);
+    PRIMARY KEY (window_start)
+);
 
--- 1. Demand & Revenue Table (UPDATED for panel queries)
+
+-- 1. Demand & Revenue Table
+-- Query: Group by window (hour), zone, peak_category
 CREATE TABLE IF NOT EXISTS demand_dynamics (
-    pickup_zone TEXT,
     window_start TIMESTAMP,
     window_end TIMESTAMP,
+    pickup_zone TEXT,
     peak_category TEXT,
     total_trips BIGINT,
     total_revenue DOUBLE,
@@ -31,9 +56,10 @@ CREATE TABLE IF NOT EXISTS demand_dynamics (
 ) WITH CLUSTERING ORDER BY (window_start DESC);
 
 -- 2. Operational Efficiency Table
+-- Query: Group by window (30 min), zone
 CREATE TABLE IF NOT EXISTS operational_efficiency (
-    pickup_zone TEXT,
     window_start TIMESTAMP,
+    pickup_zone TEXT,
     avg_speed DOUBLE,
     avg_duration_sec DOUBLE,
     avg_occupancy DOUBLE,
@@ -41,57 +67,12 @@ CREATE TABLE IF NOT EXISTS operational_efficiency (
 ) WITH CLUSTERING ORDER BY (window_start DESC);
 
 -- 3. Rider Behavior Table
+-- Query: Group by window (hour), payment_type, distance_category
 CREATE TABLE IF NOT EXISTS rider_behavior (
-    payment_type BIGINT,
     window_start TIMESTAMP,
+    payment_type BIGINT,
     distance_category TEXT,
     total_trips BIGINT,
     avg_tip_ratio DOUBLE,
     PRIMARY KEY ((payment_type), window_start, distance_category)
 ) WITH CLUSTERING ORDER BY (window_start DESC);
-
--- Table for 5-minute aggregations (for vendor_id variable)
-CREATE TABLE IF NOT EXISTS trip_aggregations_5min (
-    vendor_id INT,
-    window_start TIMESTAMP,
-    window_end TIMESTAMP,
-    trip_count BIGINT,
-    avg_passenger_count DOUBLE,
-    total_revenue DOUBLE,
-    avg_fare DOUBLE,
-    PRIMARY KEY ((vendor_id), window_start)
-) WITH CLUSTERING ORDER BY (window_start DESC);
-
--- TIME-SERIES OPTIMIZED TABLES FOR GRAFANA DASHBOARDS
--- These tables have time-based partition keys for efficient time-series queries
-
--- Time-series view of demand_dynamics for line charts
-CREATE TABLE IF NOT EXISTS demand_timeseries (
-    time_bucket TEXT,
-    window_start TIMESTAMP,
-    pickup_zone TEXT,
-    total_trips BIGINT,
-    total_revenue DOUBLE,
-    avg_fare_per_mile DOUBLE,
-    PRIMARY KEY ((time_bucket), window_start, pickup_zone)
-) WITH CLUSTERING ORDER BY (window_start DESC, pickup_zone ASC);
-
--- Time-series view of operational_efficiency for line charts
-CREATE TABLE IF NOT EXISTS ops_timeseries (
-    time_bucket TEXT,
-    window_start TIMESTAMP,
-    pickup_zone TEXT,
-    avg_speed DOUBLE,
-    avg_duration_sec DOUBLE,
-    avg_occupancy DOUBLE,
-    PRIMARY KEY ((time_bucket), window_start, pickup_zone)
-) WITH CLUSTERING ORDER BY (window_start DESC, pickup_zone ASC);
-
--- Zone-aggregated revenue for bar charts (total across all time)
-CREATE TABLE IF NOT EXISTS zone_revenue_totals (
-    zone_group TEXT,
-    pickup_zone TEXT,
-    total_revenue DOUBLE,
-    total_trips BIGINT,
-    PRIMARY KEY ((zone_group), total_revenue, pickup_zone)
-) WITH CLUSTERING ORDER BY (total_revenue DESC, pickup_zone ASC);
