@@ -1,0 +1,139 @@
+name: Big Data Pipeline Integration Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+    
+    env:
+      SPARK_VERSION: '3.5.7' # Match the version in your README
+      HADOOP_VERSION: '3'
+      SCALA_VERSION: '2.13'
+
+    steps:
+    # 1. Setup Environment
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Java 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v1
+
+    # 1.5. Spin up Docker so we don't have to wait
+    - name: Start Docker Services
+      run: docker compose up -d
+    
+    # 1.6. Ownership fix
+    - name: chown fix for Broker
+      run: |
+        mkdir -p kafka/kafka_data
+        sudo chown -R $USER:$USER kafka/kafka_data/
+
+    # 2. Install Spark (Cached to speed up runs)
+    - name: Cache Spark
+      id: cache-spark
+      uses: actions/cache@v3
+      with:
+        path: ~/spark
+        key: ${{ runner.os }}-spark-${{ env.SPARK_VERSION }}
+
+    - name: Install Spark
+      if: steps.cache-spark.outputs.cache-hit != 'true'
+      run: |
+        wget -q https://downloads.apache.org/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}-scala${SCALA_VERSION}.tgz
+        tar xzf spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}-scala${SCALA_VERSION}.tgz
+        mv spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}-scala${SCALA_VERSION} ~/spark
+        rm spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}-scala${SCALA_VERSION}.tgz
+
+    - name: Set Spark Environment Variables
+      run: |
+        echo "SPARK_HOME=$HOME/spark" >> $GITHUB_ENV
+        echo "$HOME/spark/bin" >> $GITHUB_PATH
+
+    # 3. Setup Dependencies & Dummy Data
+    - name: Install Python Dependencies
+      run: uv sync
+
+    - name: Generate Dummy Test Data
+      run: |
+        # Create data directory
+        mkdir -p data
+        # Run a small script to create a valid parquet file so we don't download 500MB
+        uv add pandas numpy pyarrow
+        uv run python -c "
+        import pandas as pd
+        import numpy as np
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+        
+        # Create minimal dummy data matching NYC Taxi schema
+        df = pd.DataFrame({
+            'VendorID': [1, 2] * 50,
+            'tpep_pickup_datetime': pd.date_range(start='2025-08-01', periods=100, freq='S'),
+            'tpep_dropoff_datetime': pd.date_range(start='2025-08-01 00:10:00', periods=100, freq='S'),
+            'passenger_count': np.random.randint(1, 5, 100),
+            'trip_distance': np.random.rand(100) * 10,
+            'PULocationID': np.random.randint(1, 263, 100),
+            'DOLocationID': np.random.randint(1, 263, 100),
+            'total_amount': np.random.rand(100) * 50
+        })
+        table = pa.Table.from_pandas(df)
+        pq.write_table(table, 'data/yellow_tripdata_2025-08.parquet')
+        print('Dummy parquet generated successfully.')
+        "
+
+    # 4. Start Infrastructure
+    - name: Wait for Services (Sleep)
+      run: sleep 45 # Give Cassandra and Kafka time to elect leaders
+
+    - name: Initialize Cassandra Schema
+      run: docker exec -i cassandra cqlsh < cassandra/init.cql
+
+    # 5. Run The Tests (With Timeout Logic)
+    - name: Test Kafka Producer
+      run: |
+        echo "Starting Producer for 15 seconds..."
+        # 'timeout' returns 124 if it times out (which is Good for us), and other codes if it crashes (Bad)
+        timeout 15s uv run python kafka/producer.py || code=$?
+        
+        if [[ $code -eq 124 ]]; then
+          echo "Producer ran successfully for 15 seconds."
+          exit 0
+        elif [[ $code -eq 0 ]]; then
+          echo "Producer finished early (ran out of data?). This is also acceptable."
+          exit 0
+        else
+          echo "Producer CRASHED with exit code $code"
+          exit 1
+        fi
+
+    - name: Test Spark Streaming
+      run: |
+        echo "Starting Spark Streaming for 30 seconds..."
+        # Using the exact command from your README
+        timeout 30s spark-submit \
+          --packages org.apache.spark:spark-sql-kafka-0-10_2.13:3.5.1,com.datastax.spark:spark-cassandra-connector_2.13:3.5.1 \
+          spark/streaming.py || code=$?
+
+        if [[ $code -eq 124 ]]; then
+          echo "Spark job ran successfully for 30 seconds."
+          exit 0
+        else
+          echo "Spark job CRASHED with exit code $code"
+          exit 1
+        fi
+
+    # 6. Cleanup (Optional, runner cleans up anyway)
+    - name: Dump Docker Logs on Failure
+      if: failure()
+      run: docker compose logs
