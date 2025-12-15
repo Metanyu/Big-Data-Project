@@ -106,7 +106,7 @@ def print_status_bar(sim_time, rate, total, late, queue_size):
 
 def simulate_stream(args, data_path):
     producer = Producer({
-        'bootstrap.servers': 'localhost:9092',
+        'bootstrap.servers': 'broker:29092',
         'queue.buffering.max.messages': 500000,
         'queue.buffering.max.ms': 200,
         'enable.idempotence': True
