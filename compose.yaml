@@ -36,6 +36,14 @@ services:
       KAFKA_LOG_DIRS: "/tmp/kraft-combined-logs"
       CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
 
+  producer: 
+    build: 
+      context: .
+      dockerfile: kafka/Dockerfile
+    depends_on:
+      - broker
+    command: uv run python producer.py
+
   cassandra:
     image: cassandra:4.1
     container_name: cassandra
