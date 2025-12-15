@@ -109,7 +109,7 @@ def process_data(df, spark, mode):
 
     # CONDITIONAL: Apply Watermark only for Streaming
     if mode == "stream":
-        df_enriched = df_enriched.withWatermark("event_time", "10 minutes")
+        df_enriched = df_enriched.withWatermark("event_time", "2 hours")
 
     # Metrics Calculation
     df_final = df_enriched.withColumn("pickup_hour", hour("event_time")) \
@@ -249,7 +249,6 @@ def main():
                 .outputMode("update") \
                 .foreachBatch(lambda df, id, t=full_table: write_cassandra(df, t, "stream", id)) \
                 .option("checkpointLocation", ckpt) \
-                .trigger(processingTime='10 seconds') \
                 .start()
             active_streams.append(q)
             print(f"Started STREAM: {full_table} [{interval}]")
