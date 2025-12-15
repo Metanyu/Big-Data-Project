@@ -78,7 +78,7 @@ MAX_RECORDS = 10000  # Limit for testing (remove for production)
 
 # Kafka producer configuration
 producer_config = {
-    'bootstrap.servers': 'localhost:9092',
+    'bootstrap.servers': 'broker:29092',
     'enable.idempotence': True
 }
 
