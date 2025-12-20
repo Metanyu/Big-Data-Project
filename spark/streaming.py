@@ -24,8 +24,7 @@ CHECKPOINT_ROOT = os.getenv("CHECKPOINT_ROOT", "/tmp/spark_checkpoints")
 
 # 7ax1 z0n3 100kup from: https://d37ci6vzurychx.cloudfront.net/misc/taxi_zone_lookup.csv
 SCRIPT_DIR = os.path.dirname(__file__)
-PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..'))
-ZONE_LOOKUP_PATH = os.path.join(PROJECT_ROOT, "spark", "taxi_zone_lookup.csv")
+ZONE_LOOKUP_PATH = os.path.join(SCRIPT_DIR, "taxi_zone_lookup.csv")
 
 # ---------- Schema ----------
 taxi_schema = StructType([
@@ -72,6 +71,9 @@ def read_kafka(spark, mode):
             .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS) \
             .option("subscribe", KAFKA_TOPIC) \
             .option("startingOffsets", "latest") \
+            .option("failOnDataLoss", "false") \
+            .option("kafka.client.dns.lookup", "use_all_dns_ips") \
+            .option("kafka.metadata.max.age.ms", "30000") \
             .load()
     else:
         logger.info("Initializing Kafka Batch Read...")
@@ -81,6 +83,8 @@ def read_kafka(spark, mode):
             .option("subscribe", KAFKA_TOPIC) \
             .option("startingOffsets", "earliest") \
             .option("endingOffsets", "latest") \
+            .option("kafka.client.dns.lookup", "use_all_dns_ips") \
+            .option("kafka.metadata.max.age.ms", "30000") \
             .load()
 
 # ---------- 3. Unified Processing Logic ----------
