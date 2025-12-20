@@ -23,6 +23,7 @@ DOWNLOAD_URL = "https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_
 # --- Defaults ---
 DEFAULT_TOPIC = "taxi-trips"
 DEFAULT_SPEEDUP = 3600.0
+DEFAULT_KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "broker:29092")
 
 def get_args():
     parser = argparse.ArgumentParser(description="Production-Grade Taxi Data Simulator")
@@ -106,7 +107,7 @@ def print_status_bar(sim_time, rate, total, late, queue_size):
 
 def simulate_stream(args, data_path):
     producer = Producer({
-        'bootstrap.servers': 'broker:29092',
+        'bootstrap.servers': DEFAULT_KAFKA_BOOTSTRAP,
         'queue.buffering.max.messages': 500000,
         'queue.buffering.max.ms': 200,
         'enable.idempotence': True

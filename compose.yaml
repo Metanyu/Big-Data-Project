@@ -42,7 +42,10 @@ services:
       dockerfile: kafka/Dockerfile
     depends_on:
       - broker
-    command: uv run python producer.py
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=broker:29092
+    command: sh -c "sleep 10 && uv run python producer.py"
+    restart: unless-stopped
 
   cassandra:
     image: cassandra:4.1
@@ -61,6 +64,32 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
+  spark:
+    build:
+      context: .
+      dockerfile: spark/Dockerfile
+    container_name: spark
+    depends_on:
+      cassandra:
+        condition: service_healthy  
+      broker:
+        condition: service_started
+    ports:
+      - "4040:4040"
+    volumes:
+      - ./spark:/opt/spark-apps
+      - spark-checkpoints:/tmp/spark_checkpoints
+    environment:
+      - SPARK_LOCAL_DIRS=/tmp
+      - KAFKA_BOOTSTRAP_SERVERS=broker:29092
+      - CASSANDRA_HOST=cassandra
+    command: >
+      /opt/spark/bin/spark-submit
+      --master local[*]
+      --jars /opt/spark-jars/spark-sql-kafka-0-10_2.12-3.5.1.jar,/opt/spark-jars/kafka-clients-3.4.1.jar,/opt/spark-jars/spark-token-provider-kafka-0-10_2.12-3.5.1.jar,/opt/spark-jars/commons-pool2-2.11.1.jar,/opt/spark-jars/spark-cassandra-connector-assembly_2.12-3.5.1.jar
+      --conf spark.sql.streaming.checkpointLocation=/tmp/spark_checkpoints
+      /opt/spark-apps/streaming.py
 
   grafana:
     image: grafana/grafana:latest
@@ -90,6 +119,7 @@ services:
 volumes:
   cassandra_data:
   grafana_data:
+  spark-checkpoints:
 
     # The commented out section below is an example of how to define a PostgreSQL
     # database that your application can use. `depends_on` tells Docker Compose to
