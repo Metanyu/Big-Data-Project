@@ -3,7 +3,9 @@
     "list": [
       {
         "builtIn": 1,
-        "datasource": "-- Grafana --",
+        "datasource": {
+          "uid": "-- Grafana --"
+        },
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
@@ -13,176 +15,426 @@
     ]
   },
   "editable": true,
+  "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": null,
+  "id": 1,
   "links": [],
   "panels": [
     {
-      "id": 1,
-      "type": "timeseries",
-      "title": "Total Revenue by Top Zones (Hourly)",
-      "datasource": "Cassandra",
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
+      "datasource": {
+        "type": "hadesarchitect-cassandra-datasource",
+        "uid": "PE3297E400DFF12FE"
+      },
       "fieldConfig": {
         "defaults": {
-          "unit": "currencyUSD",
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "currencyUSD"
         },
         "overrides": []
       },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.2.1",
       "targets": [
         {
-          "refId": "A",
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "PE3297E400DFF12FE"
+          },
           "queryType": "query",
           "rawQuery": true,
-          "target": "SELECT pickup_zone, window_start AS time, total_revenue AS value FROM taxi_streaming.zone_performance_1h WHERE pickup_zone = 'Midtown' ORDER BY window_start ASC;"
+          "refId": "A",
+          "target": "SELECT pickup_zone,\n       total_revenue AS value,\n       window_start AS time\nFROM taxi_streaming.zone_performance_1h\nWHERE pickup_zone = 'Briarwood/Jamaica Hills'\n  AND window_start >= $__timeFrom\n  AND window_start <= $__timeTo\nORDER BY window_start ASC;\n"
         },
         {
-          "refId": "B",
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "PE3297E400DFF12FE"
+          },
           "queryType": "query",
           "rawQuery": true,
+          "refId": "B",
           "target": "SELECT pickup_zone, window_start AS time, total_revenue AS value FROM taxi_streaming.zone_performance_1h WHERE pickup_zone = 'Downtown' ORDER BY window_start ASC;"
         },
         {
-          "refId": "C",
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "PE3297E400DFF12FE"
+          },
+          "datasourceId": 1,
           "queryType": "query",
           "rawQuery": true,
+          "refId": "C",
           "target": "SELECT pickup_zone, window_start AS time, total_revenue AS value FROM taxi_streaming.zone_performance_1h WHERE pickup_zone = 'Uptown' ORDER BY window_start ASC;"
         }
       ],
-      "options": {
-        "legend": { "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "single" }
-      }
+      "title": "Total Revenue by Top Zones (Hourly)",
+      "type": "timeseries"
     },
-
     {
-      "id": 6,
-      "type": "stat",
-      "title": "Real-Time Global KPIs (5 min)",
-      "datasource": "Cassandra",
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 0 },
+      "datasource": {
+        "type": "hadesarchitect-cassandra-datasource",
+        "uid": "PE3297E400DFF12FE"
+      },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "thresholds" },
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [{ "color": "green", "value": null }]
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
           }
         },
         "overrides": []
       },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.2.1",
       "targets": [
         {
-          "refId": "A",
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "PE3297E400DFF12FE"
+          },
           "queryType": "query",
           "rawQuery": true,
+          "refId": "A",
           "target": "SELECT shard_id, window_start AS time, total_trips AS value FROM taxi_streaming.global_kpis_5m WHERE shard_id = 'global' ORDER BY window_start DESC LIMIT 1;"
         },
         {
-          "refId": "B",
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "PE3297E400DFF12FE"
+          },
           "queryType": "query",
           "rawQuery": true,
+          "refId": "B",
           "target": "SELECT shard_id, window_start AS time, total_revenue AS value FROM taxi_streaming.global_kpis_5m WHERE shard_id = 'global' ORDER BY window_start DESC LIMIT 1;"
         },
         {
-          "refId": "C",
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "PE3297E400DFF12FE"
+          },
           "queryType": "query",
           "rawQuery": true,
+          "refId": "C",
           "target": "SELECT shard_id, window_start AS time, avg_speed_mph AS value FROM taxi_streaming.global_kpis_5m WHERE shard_id = 'global' ORDER BY window_start DESC LIMIT 1;"
         },
         {
-          "refId": "D",
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "PE3297E400DFF12FE"
+          },
           "queryType": "query",
           "rawQuery": true,
+          "refId": "D",
           "target": "SELECT shard_id, window_start AS time, avg_tip_ratio AS value FROM taxi_streaming.global_kpis_5m WHERE shard_id = 'global' ORDER BY window_start DESC LIMIT 1;"
         }
       ],
-      "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
-        "orientation": "horizontal",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto"
-      }
+      "title": "Real-Time Global KPIs (5 min)",
+      "type": "stat"
     },
-
     {
-      "id": 7,
-      "type": "timeseries",
-      "title": "Peak vs Off-Peak Trip Distribution",
-      "datasource": "Cassandra",
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
+      "datasource": {
+        "type": "hadesarchitect-cassandra-datasource",
+        "uid": "PE3297E400DFF12FE"
+      },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
-          "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" } },
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "bars",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
         },
         "overrides": []
       },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.2.1",
       "targets": [
         {
-          "refId": "A",
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "PE3297E400DFF12FE"
+          },
           "queryType": "query",
           "rawQuery": true,
+          "refId": "A",
           "target": "SELECT peak_category, window_start AS time, total_trips AS value FROM taxi_streaming.peak_analysis_15m WHERE peak_category = 'AM Rush' ORDER BY window_start ASC;"
         },
         {
-          "refId": "B",
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "PE3297E400DFF12FE"
+          },
           "queryType": "query",
           "rawQuery": true,
+          "refId": "B",
           "target": "SELECT peak_category, window_start AS time, total_trips AS value FROM taxi_streaming.peak_analysis_15m WHERE peak_category = 'PM Rush' ORDER BY window_start ASC;"
         },
         {
-          "refId": "C",
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "PE3297E400DFF12FE"
+          },
           "queryType": "query",
           "rawQuery": true,
+          "refId": "C",
           "target": "SELECT peak_category, window_start AS time, total_trips AS value FROM taxi_streaming.peak_analysis_15m WHERE peak_category = 'Off-Peak' ORDER BY window_start ASC;"
         }
       ],
-      "options": {
-        "legend": { "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "single" }
-      }
+      "title": "Peak vs Off-Peak Trip Distribution",
+      "type": "timeseries"
     },
-
     {
-      "id": 8,
-      "type": "piechart",
-      "title": "Payment Type Distribution",
-      "datasource": "Cassandra",
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
+      "datasource": {
+        "type": "hadesarchitect-cassandra-datasource",
+        "uid": "PE3297E400DFF12FE"
+      },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [],
+          "unit": "short"
         },
         "overrides": []
       },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": true
+        },
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "sort": "desc",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.2.1",
       "targets": [
         {
-          "refId": "A",
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "PE3297E400DFF12FE"
+          },
           "queryType": "query",
           "rawQuery": true,
+          "refId": "A",
           "target": "SELECT payment_type, window_start AS time, total_trips AS value FROM taxi_streaming.payment_analysis_15m ORDER BY window_start DESC LIMIT 50;"
         }
       ],
-      "options": {
-        "legend": { "displayMode": "list", "placement": "right" },
-        "pieType": "donut",
-        "reduceOptions": { "calcs": ["lastNotNull"] }
-      }
+      "title": "Payment Type Distribution",
+      "type": "piechart"
     }
   ],
+  "preload": false,
   "refresh": "10s",
-  "schemaVersion": 27,
-  "style": "dark",
-  "tags": ["taxi", "streaming", "cassandra"],
-  "time": { "from": "now-6h", "to": "now" },
+  "schemaVersion": 42,
+  "tags": [
+    "taxi",
+    "streaming",
+    "cassandra"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "2025-08-29T16:59:59.000Z",
+    "to": "2025-08-30T16:59:58.000Z"
+  },
+  "timepicker": {},
   "timezone": "",
   "title": "NYC Taxi - Business KPIs",
   "uid": "taxi-dashboard",
-  "version": 1
+  "version": 6
 }
