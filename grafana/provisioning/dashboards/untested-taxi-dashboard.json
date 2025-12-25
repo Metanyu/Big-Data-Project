@@ -196,7 +196,7 @@
           "queryType": "query",
           "rawQuery": true,
           "refId": "A",
-          "target": "SELECT shard_id, window_start AS time, total_trips AS value FROM taxi_streaming.global_kpis_5m WHERE shard_id = 'global' ORDER BY window_start DESC LIMIT 1;"
+          "target": "SELECT shard_id, window_start AS time, total_trips AS value FROM taxi_streaming.global_kpis_5m WHERE shard_id = '1' ORDER BY window_start DESC LIMIT 1;"
         },
         {
           "datasource": {
@@ -223,6 +223,7 @@
             "type": "hadesarchitect-cassandra-datasource",
             "uid": "PE3297E400DFF12FE"
           },
+          "datasourceId": 1,
           "queryType": "query",
           "rawQuery": true,
           "refId": "D",
@@ -429,8 +430,8 @@
     "list": []
   },
   "time": {
-    "from": "2025-08-29T16:59:59.000Z",
-    "to": "2025-08-30T16:59:58.000Z"
+    "from": "now-6h",
+    "to": "now"
   },
   "timepicker": {},
   "timezone": "",
