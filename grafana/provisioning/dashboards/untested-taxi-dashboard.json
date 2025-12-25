@@ -412,11 +412,11 @@
           "queryType": "query",
           "rawQuery": true,
           "refId": "A",
-          "target": "SELECT total_trips AS value, window_start AS time\nFROM taxi_streaming.payment_analysis_15m\nWHERE payment_type = 'Cash'\n  AND window_start >= $__timeFrom\n  AND window_start <= $__timeTo;\n"
+          "target": "SELECT payment_type, total_trips AS value, window_start AS time FROM taxi_streaming.payment_analysis_15m;"
         }
       ],
       "title": "Payment Type Distribution",
-      "type": "piechart"
+      "type": "timeseries"
     }
   ],
   "preload": false,
