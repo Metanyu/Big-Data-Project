@@ -408,10 +408,11 @@
             "type": "hadesarchitect-cassandra-datasource",
             "uid": "PE3297E400DFF12FE"
           },
+          "datasourceId": 1,
           "queryType": "query",
           "rawQuery": true,
           "refId": "A",
-          "target": "SELECT payment_type, window_start AS time, total_trips AS value FROM taxi_streaming.payment_analysis_15m ORDER BY window_start DESC LIMIT 50;"
+          "target": "SELECT total_trips AS value, window_start AS time\nFROM taxi_streaming.payment_analysis_15m\nWHERE payment_type = 'Cash'\n  AND window_start >= $__timeFrom\n  AND window_start <= $__timeTo;\n"
         }
       ],
       "title": "Payment Type Distribution",
