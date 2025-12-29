@@ -215,12 +215,12 @@ def main():
     if args.mode == "stream":
         # Stream Config: (Function, Interval, Table Suffix)
         configs = [
-            (get_zone_agg, "5 minutes", "_5m"),
+            (get_zone_agg, "30 minutes", "_30m"),
             (get_zone_agg, "1 hour", "_1h"),
-            (get_global_agg, "5 minutes", "_5m"),
+            (get_global_agg, "30 minutes", "_30m"),
             (get_global_agg, "1 hour", "_1h"),
-            (get_peak_agg, "15 minutes", "_15m"),
-            (get_payment_agg, "15 minutes", "_15m")
+            (get_peak_agg, "30 minutes", "_30m"),
+            (get_payment_agg, "30 minutes", "_30m")
         ]
     else:
         # Batch Config: Always 1 Day
@@ -238,7 +238,7 @@ def main():
         agg_df = agg_func(final_df, interval)
         
         # Determine base table name from suffix naming convention
-        # Mapping: _5m/_1h/_1d -> zone_performance / global_kpis / peak_analysis / payment_analysis
+        # Mapping: _30m/_1h/_1d -> zone_performance / global_kpis / peak_analysis / payment_analysis
         if agg_func == get_zone_agg: base = "zone_performance"
         elif agg_func == get_global_agg: base = "global_kpis"
         elif agg_func == get_peak_agg: base = "peak_analysis"
