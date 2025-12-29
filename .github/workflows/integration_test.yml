@@ -51,9 +51,6 @@ jobs:
     - name: Start Docker Services
       run: docker compose up -d
 
-    - name: Wait for Services (Sleep)
-      run: sleep 60 # Allow Spark & Cassandra to initialize
-
     # 4. Run Integration Test
     - name: Run Integration Test
       run: |
