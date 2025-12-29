@@ -41,6 +41,7 @@ services:
     build: 
       context: .
       dockerfile: kafka/Dockerfile
+    container_name: producer
     depends_on:
       - broker
     environment:
@@ -66,6 +67,16 @@ services:
       timeout: 5s
       retries: 10
 
+  init-cassandra:
+    image: cassandra:4.1
+    container_name: init-cassandra-job
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ./cassandra:/cassandra
+    command: cqlsh cassandra -f /cassandra/init.cql
+
   spark:
     build:
       context: .
@@ -74,6 +85,8 @@ services:
     depends_on:
       cassandra:
         condition: service_healthy  
+      init-cassandra:
+        condition: service_completed_successfully
       broker:
         condition: service_started
     ports:
