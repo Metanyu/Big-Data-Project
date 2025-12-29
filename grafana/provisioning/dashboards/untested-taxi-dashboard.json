@@ -428,11 +428,28 @@
           "color": { "mode": "palette-classic" },
           "custom": {
             "axisBorderShow": false,
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "bars",
+            "fillOpacity": 100,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
             "lineWidth": 1,
-            "showPoints": "auto",
-            "spanNulls": true
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": { "mode": "off" }
           },
           "unit": "short"
         },
@@ -454,10 +471,50 @@
           "queryType": "query",
           "rawQuery": true,
           "refId": "A",
-          "target": "SELECT pickup_zone, total_trips AS value, window_start AS time FROM taxi_streaming.zone_performance_5m WHERE window_start >= $__timeFrom AND window_start <= $__timeTo ALLOW FILTERING"
+          "target": "SELECT pickup_zone, total_trips AS value, window_start AS time FROM taxi_streaming.zone_performance_30m WHERE pickup_zone = 'Upper East Side North' ORDER BY window_start ASC"
+        },
+        {
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "PE3297E400DFF12FE"
+          },
+          "queryType": "query",
+          "rawQuery": true,
+          "refId": "B",
+          "target": "SELECT pickup_zone, total_trips AS value, window_start AS time FROM taxi_streaming.zone_performance_30m WHERE pickup_zone = 'Upper East Side South' ORDER BY window_start ASC"
+        },
+        {
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "PE3297E400DFF12FE"
+          },
+          "queryType": "query",
+          "rawQuery": true,
+          "refId": "C",
+          "target": "SELECT pickup_zone, total_trips AS value, window_start AS time FROM taxi_streaming.zone_performance_30m WHERE pickup_zone = 'Midtown Center' ORDER BY window_start ASC"
+        },
+        {
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "PE3297E400DFF12FE"
+          },
+          "queryType": "query",
+          "rawQuery": true,
+          "refId": "D",
+          "target": "SELECT pickup_zone, total_trips AS value, window_start AS time FROM taxi_streaming.zone_performance_30m WHERE pickup_zone = 'Lincoln Square East' ORDER BY window_start ASC"
+        },
+        {
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "PE3297E400DFF12FE"
+          },
+          "queryType": "query",
+          "rawQuery": true,
+          "refId": "E",
+          "target": "SELECT pickup_zone, total_trips AS value, window_start AS time FROM taxi_streaming.zone_performance_30m WHERE pickup_zone = 'Times Sq/Theatre District' ORDER BY window_start ASC"
         }
       ],
-      "title": "Trip Demand by Zone",
+      "title": "Trip Demand by Zone (Top 5)",
       "type": "timeseries"
     }
   ],
