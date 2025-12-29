@@ -417,6 +417,48 @@
       ],
       "title": "Payment Type Distribution",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "hadesarchitect-cassandra-datasource",
+        "uid": "PE3297E400DFF12FE"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "showPoints": "auto",
+            "spanNulls": true
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 18 },
+      "id": 10,
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "pluginVersion": "12.2.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "PE3297E400DFF12FE"
+          },
+          "queryType": "query",
+          "rawQuery": true,
+          "refId": "A",
+          "target": "SELECT pickup_zone, total_trips AS value, window_start AS time FROM taxi_streaming.zone_performance_5m WHERE window_start >= $__timeFrom AND window_start <= $__timeTo ALLOW FILTERING"
+        }
+      ],
+      "title": "Trip Demand by Zone",
+      "type": "timeseries"
     }
   ],
   "preload": false,
