@@ -46,6 +46,8 @@ services:
       - broker
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=broker:29092
+    volumes:
+      - ./data:/data
     command: sh -c "sleep 10 && uv run python producer.py"
     restart: unless-stopped
 

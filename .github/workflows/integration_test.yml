@@ -1,0 +1,68 @@
+name: Big Data Pipeline Integration Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    # 1. Setup Environment
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v1
+
+    # 2. Generate Dummy Data
+    - name: Generate Dummy Test Data
+      run: |
+        mkdir -p data
+        uv venv .venv
+        uv pip install pandas numpy pyarrow
+        
+        # Simple script to generate valid parquet
+        uv run python -c "
+        import pandas as pd
+        import numpy as np
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+        
+        df = pd.DataFrame({
+            'VendorID': [1, 2] * 50,
+            'tpep_pickup_datetime': pd.date_range(start='2025-08-01', periods=100, freq='S'),
+            'tpep_dropoff_datetime': pd.date_range(start='2025-08-01 00:10:00', periods=100, freq='S'),
+            'passenger_count': np.random.randint(1, 5, 100),
+            'trip_distance': np.random.rand(100) * 10,
+            'PULocationID': np.random.randint(1, 263, 100),
+            'DOLocationID': np.random.randint(1, 263, 100),
+            'total_amount': np.random.rand(100) * 50
+        })
+        table = pa.Table.from_pandas(df)
+        pq.write_table(table, 'data/yellow_tripdata_2025-08.parquet')
+        print('Dummy parquet generated successfully.')
+        "
+
+    # 3. Start Infrastructure
+    - name: Start Docker Services
+      run: docker compose up -d
+
+    - name: Wait for Services (Sleep)
+      run: sleep 60 # Allow Spark & Cassandra to initialize
+
+    # 4. Run Integration Test
+    - name: Run Integration Test
+      run: |
+        uv pip install cassandra-driver
+        
+        echo "Running Integration Test Script..."
+        timeout 60s uv run python tests/integration_test.py
+
+    # 5. Cleanup / Logs
+    - name: Dump Docker Logs on Failure
+      if: failure()
+      run: docker compose logs
