@@ -211,7 +211,7 @@
           "queryType": "query",
           "rawQuery": true,
           "refId": "A",
-          "target": "SELECT shard_id, window_start AS time, total_trips AS value FROM taxi_streaming.global_kpis_30m WHERE shard_id = '1' ORDER BY window_start DESC LIMIT 1;"
+          "target": "SELECT shard_id, window_start AS time, total_trips AS \"total trips\" FROM taxi_streaming.global_kpis_30m WHERE shard_id = '1' ORDER BY window_start DESC LIMIT 1;"
         },
         {
           "datasource": {
@@ -221,7 +221,7 @@
           "queryType": "query",
           "rawQuery": true,
           "refId": "B",
-          "target": "SELECT shard_id, window_start AS time, total_revenue AS value FROM taxi_streaming.global_kpis_30m WHERE shard_id = 'global' ORDER BY window_start DESC LIMIT 1;"
+          "target": "SELECT shard_id, window_start AS time, total_revenue AS \"total revenue\" FROM taxi_streaming.global_kpis_30m WHERE shard_id = '1' ORDER BY window_start DESC LIMIT 1;"
         },
         {
           "datasource": {
@@ -231,7 +231,7 @@
           "queryType": "query",
           "rawQuery": true,
           "refId": "C",
-          "target": "SELECT shard_id, window_start AS time, avg_speed_mph AS value FROM taxi_streaming.global_kpis_30m WHERE shard_id = 'global' ORDER BY window_start DESC LIMIT 1;"
+          "target": "SELECT shard_id, window_start AS time, avg_speed_mph AS \"avg speed mph\" FROM taxi_streaming.global_kpis_30m WHERE shard_id = '1' ORDER BY window_start DESC LIMIT 1;"
         },
         {
           "datasource": {
@@ -242,7 +242,7 @@
           "queryType": "query",
           "rawQuery": true,
           "refId": "D",
-          "target": "SELECT shard_id, window_start AS time, avg_tip_ratio AS value FROM taxi_streaming.global_kpis_30m WHERE shard_id = 'global' ORDER BY window_start DESC LIMIT 1;"
+          "target": "SELECT shard_id, window_start AS time, avg_tip_ratio AS \"avg tip ratio\" FROM taxi_streaming.global_kpis_30m WHERE shard_id = '1' ORDER BY window_start DESC LIMIT 1;"
         }
       ],
       "title": "Real-Time Global KPIs (30 min)",
