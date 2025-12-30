@@ -38,27 +38,23 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 100,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "viz": false
             },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
             "lineWidth": 1,
-            "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
-            "showValues": false,
+            "showPoints": "never",
             "spanNulls": false,
             "stacking": {
               "group": "A",
-              "mode": "none"
+              "mode": "normal"
             },
             "thresholdsStyle": {
               "mode": "off"
@@ -98,8 +94,8 @@
         },
         "tooltip": {
           "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "pluginVersion": "12.2.1",
@@ -112,7 +108,7 @@
           "queryType": "query",
           "rawQuery": true,
           "refId": "A",
-          "target": "SELECT pickup_zone,\n       total_revenue AS value,\n       window_start AS time\nFROM taxi_streaming.zone_performance_1h\nWHERE pickup_zone = 'Briarwood/Jamaica Hills'\n  AND window_start >= $__timeFrom\n  AND window_start <= $__timeTo\nORDER BY window_start ASC;\n"
+          "target": "SELECT pickup_zone, total_revenue AS value, window_start AS time FROM taxi_streaming.zone_performance_1h WHERE pickup_zone = 'Upper East Side North' ORDER BY window_start ASC"
         },
         {
           "datasource": {
@@ -122,18 +118,37 @@
           "queryType": "query",
           "rawQuery": true,
           "refId": "B",
-          "target": "SELECT pickup_zone, window_start AS time, total_revenue AS value FROM taxi_streaming.zone_performance_1h WHERE pickup_zone = 'Downtown' ORDER BY window_start ASC;"
+          "target": "SELECT pickup_zone, total_revenue AS value, window_start AS time FROM taxi_streaming.zone_performance_1h WHERE pickup_zone = 'Upper East Side South' ORDER BY window_start ASC"
         },
         {
           "datasource": {
             "type": "hadesarchitect-cassandra-datasource",
             "uid": "PE3297E400DFF12FE"
           },
-          "datasourceId": 1,
           "queryType": "query",
           "rawQuery": true,
           "refId": "C",
-          "target": "SELECT pickup_zone, window_start AS time, total_revenue AS value FROM taxi_streaming.zone_performance_1h WHERE pickup_zone = 'Uptown' ORDER BY window_start ASC;"
+          "target": "SELECT pickup_zone, total_revenue AS value, window_start AS time FROM taxi_streaming.zone_performance_1h WHERE pickup_zone = 'Midtown Center' ORDER BY window_start ASC"
+        },
+        {
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "PE3297E400DFF12FE"
+          },
+          "queryType": "query",
+          "rawQuery": true,
+          "refId": "D",
+          "target": "SELECT pickup_zone, total_revenue AS value, window_start AS time FROM taxi_streaming.zone_performance_1h WHERE pickup_zone = 'Lincoln Square East' ORDER BY window_start ASC"
+        },
+        {
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "PE3297E400DFF12FE"
+          },
+          "queryType": "query",
+          "rawQuery": true,
+          "refId": "E",
+          "target": "SELECT pickup_zone, total_revenue AS value, window_start AS time FROM taxi_streaming.zone_performance_1h WHERE pickup_zone = 'Times Sq/Theatre District' ORDER BY window_start ASC"
         }
       ],
       "title": "Total Revenue by Top Zones (Hourly)",
@@ -196,7 +211,7 @@
           "queryType": "query",
           "rawQuery": true,
           "refId": "A",
-          "target": "SELECT shard_id, window_start AS time, total_trips AS value FROM taxi_streaming.global_kpis_5m WHERE shard_id = '1' ORDER BY window_start DESC LIMIT 1;"
+          "target": "SELECT shard_id, window_start AS time, total_trips AS value FROM taxi_streaming.global_kpis_30m WHERE shard_id = '1' ORDER BY window_start DESC LIMIT 1;"
         },
         {
           "datasource": {
@@ -206,7 +221,7 @@
           "queryType": "query",
           "rawQuery": true,
           "refId": "B",
-          "target": "SELECT shard_id, window_start AS time, total_revenue AS value FROM taxi_streaming.global_kpis_5m WHERE shard_id = 'global' ORDER BY window_start DESC LIMIT 1;"
+          "target": "SELECT shard_id, window_start AS time, total_revenue AS value FROM taxi_streaming.global_kpis_30m WHERE shard_id = 'global' ORDER BY window_start DESC LIMIT 1;"
         },
         {
           "datasource": {
@@ -216,7 +231,7 @@
           "queryType": "query",
           "rawQuery": true,
           "refId": "C",
-          "target": "SELECT shard_id, window_start AS time, avg_speed_mph AS value FROM taxi_streaming.global_kpis_5m WHERE shard_id = 'global' ORDER BY window_start DESC LIMIT 1;"
+          "target": "SELECT shard_id, window_start AS time, avg_speed_mph AS value FROM taxi_streaming.global_kpis_30m WHERE shard_id = 'global' ORDER BY window_start DESC LIMIT 1;"
         },
         {
           "datasource": {
@@ -227,10 +242,10 @@
           "queryType": "query",
           "rawQuery": true,
           "refId": "D",
-          "target": "SELECT shard_id, window_start AS time, avg_tip_ratio AS value FROM taxi_streaming.global_kpis_5m WHERE shard_id = 'global' ORDER BY window_start DESC LIMIT 1;"
+          "target": "SELECT shard_id, window_start AS time, avg_tip_ratio AS value FROM taxi_streaming.global_kpis_30m WHERE shard_id = 'global' ORDER BY window_start DESC LIMIT 1;"
         }
       ],
-      "title": "Real-Time Global KPIs (5 min)",
+      "title": "Real-Time Global KPIs (30 min)",
       "type": "stat"
     },
     {
@@ -325,7 +340,7 @@
           "queryType": "query",
           "rawQuery": true,
           "refId": "A",
-          "target": "SELECT peak_category, window_start AS time, total_trips AS value FROM taxi_streaming.peak_analysis_15m WHERE peak_category = 'AM Rush' ORDER BY window_start ASC;"
+          "target": "SELECT peak_category, window_start AS time, total_trips AS value FROM taxi_streaming.peak_analysis_30m WHERE peak_category = 'AM Rush' ORDER BY window_start ASC;"
         },
         {
           "datasource": {
@@ -335,7 +350,7 @@
           "queryType": "query",
           "rawQuery": true,
           "refId": "B",
-          "target": "SELECT peak_category, window_start AS time, total_trips AS value FROM taxi_streaming.peak_analysis_15m WHERE peak_category = 'PM Rush' ORDER BY window_start ASC;"
+          "target": "SELECT peak_category, window_start AS time, total_trips AS value FROM taxi_streaming.peak_analysis_30m WHERE peak_category = 'PM Rush' ORDER BY window_start ASC;"
         },
         {
           "datasource": {
@@ -345,7 +360,7 @@
           "queryType": "query",
           "rawQuery": true,
           "refId": "C",
-          "target": "SELECT peak_category, window_start AS time, total_trips AS value FROM taxi_streaming.peak_analysis_15m WHERE peak_category = 'Off-Peak' ORDER BY window_start ASC;"
+          "target": "SELECT peak_category, window_start AS time, total_trips AS value FROM taxi_streaming.peak_analysis_30m WHERE peak_category = 'Off-Peak' ORDER BY window_start ASC;"
         }
       ],
       "title": "Peak vs Off-Peak Trip Distribution",
@@ -412,7 +427,7 @@
           "queryType": "query",
           "rawQuery": true,
           "refId": "A",
-          "target": "SELECT payment_type, total_trips AS value, window_start AS time FROM taxi_streaming.payment_analysis_15m;"
+          "target": "SELECT payment_type, total_trips AS value, window_start AS time FROM taxi_streaming.payment_analysis_30m;"
         }
       ],
       "title": "Payment Type Distribution",
@@ -530,8 +545,8 @@
     "list": []
   },
   "time": {
-    "from": "now-6h",
-    "to": "now"
+    "from": "2025-08-01T00:00:00.000Z",
+    "to": "2025-08-31T23:59:59.000Z"
   },
   "timepicker": {},
   "timezone": "",
