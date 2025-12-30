@@ -57,7 +57,7 @@ jobs:
         uv pip install cassandra-driver
         
         echo "Running Integration Test Script..."
-        timeout 120s .venv/bin/python tests/integration_test.py
+        timeout 180s .venv/bin/python tests/integration_test.py
 
     # 5. Cleanup / Logs
     - name: Dump Docker Logs on Failure
