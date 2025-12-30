@@ -49,7 +49,7 @@ services:
     volumes:
       - ./data:/data
     command: sh -c "sleep 10 && python producer.py"
-    restart: unless-stopped
+    restart: no
 
   cassandra:
     image: cassandra:4.1
