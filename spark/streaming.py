@@ -70,7 +70,7 @@ def read_kafka(spark, mode):
             .format("kafka") \
             .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS) \
             .option("subscribe", KAFKA_TOPIC) \
-            .option("startingOffsets", "latest") \
+            .option("startingOffsets", "earliest") \
             .option("failOnDataLoss", "false") \
             .option("kafka.client.dns.lookup", "use_all_dns_ips") \
             .option("kafka.metadata.max.age.ms", "30000") \
