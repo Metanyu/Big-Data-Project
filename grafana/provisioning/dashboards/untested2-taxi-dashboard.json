@@ -69,6 +69,57 @@
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
 
+    
+    {
+      "id": 61,
+      "type": "stat",
+      "title": "Total Revenue (5-min)",
+      "datasource": "Cassandra",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD" } },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "queryType": "query",
+          "target": "SELECT shard_id, window_start AS time, total_revenue AS value FROM taxi_streaming.global_kpis_5m WHERE shard_id = 'global' ORDER BY window_start DESC LIMIT 1;"
+        }
+      ]
+    },
+
+    {
+      "id": 62,
+      "type": "stat",
+      "title": "Avg Speed (mph)",
+      "datasource": "Cassandra",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 4 },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "queryType": "query",
+          "target": "SELECT shard_id, window_start AS time, avg_speed_mph AS value FROM taxi_streaming.global_kpis_5m WHERE shard_id = 'global' ORDER BY window_start DESC LIMIT 1;"
+        }
+      ]
+    },
+
+    {
+      "id": 63,
+      "type": "stat",
+      "title": "Avg Tip Rate",
+      "datasource": "Cassandra",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 4 },
+      "fieldConfig": { "defaults": { "unit": "percent" } },
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "queryType": "query",
+          "target": "SELECT shard_id, window_start AS time, avg_tip_ratio AS value FROM taxi_streaming.global_kpis_5m WHERE shard_id = 'global' ORDER BY window_start DESC LIMIT 1;"
+        }
+      ]
+    },
+    
     {
       "id": 7,
       "type": "timeseries",
