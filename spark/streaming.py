@@ -274,7 +274,10 @@ def main():
             active_streams.append(q)
 
     print(f"Pipeline running with {len(active_streams)} streams (Mode: {args.mode})...")
-    spark.streams.awaitAnyTermination()
+    
+    # Wait for ALL streams to finish (especially crucial for Batch mode)
+    for q in active_streams:
+        q.awaitTermination()
 
 if __name__ == "__main__":
     main()
