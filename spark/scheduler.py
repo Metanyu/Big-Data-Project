@@ -41,7 +41,8 @@ def run_batch_job():
     try:
         result = subprocess.run(
             SUBMIT_CMD,
-            capture_output=True,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
             text=True
         )
         
@@ -51,11 +52,12 @@ def run_batch_job():
             logger.info(f"Batch Job Completed Successfully in {duration:.2f}s.")
         else:
             logger.error(f"Batch Job Failed after {duration:.2f}s!")
-            logger.error(f"STDOUT: {result.stdout}")
-            logger.error(f"STDERR: {result.stderr}")
-            
+
     except Exception as e:
         logger.error(f"Failed to execute subprocess: {e}")
+        return 0.0
+
+    return time.time() - start_time
 
 def main():
     args = get_args()
@@ -67,10 +69,15 @@ def main():
     logger.info(f"Schedule: Running every {real_seconds_per_sim_day:.2f} seconds (Simulated Day)")
     
     while True:
-        run_batch_job()
+        duration = run_batch_job()
         
-        logger.info(f"Waiting {real_seconds_per_sim_day:.2f}s until next run...")
-        time.sleep(real_seconds_per_sim_day)
+        sleep_time = max(0, real_seconds_per_sim_day - duration)
+        
+        if sleep_time > 0:
+            logger.info(f"Job took {duration:.2f}s. Waiting {sleep_time:.2f}s until next run...")
+            time.sleep(sleep_time)
+        else:
+            logger.warning(f"Job took {duration:.2f}s, which exceeded interval {real_seconds_per_sim_day:.2f}s. Running next immediately!")
 
 if __name__ == "__main__":
     main()
