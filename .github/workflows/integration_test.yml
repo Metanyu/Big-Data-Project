@@ -60,7 +60,7 @@ jobs:
         uv pip install cassandra-driver
         
         echo "Running Integration Test Script..."
-        .venv/bin/python tests/integration_test.py
+        uv run python tests/integration_test.py
 
     # 5. Cleanup / Logs
     - name: Dump Docker Logs on Failure

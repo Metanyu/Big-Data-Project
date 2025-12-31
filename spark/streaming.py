@@ -64,28 +64,24 @@ def get_spark_session(mode):
 
 # ---------- 2. Data Reader Helper ----------
 def read_kafka(spark, mode):
+    logger.info(f"Initializing Kafka ReadStream for mode: {mode}...")
+    
+    stream_reader = spark.readStream \
+        .format("kafka") \
+        .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS) \
+        .option("subscribe", KAFKA_TOPIC) \
+        .option("failOnDataLoss", "false") \
+        .option("kafka.client.dns.lookup", "use_all_dns_ips") \
+        .option("kafka.metadata.max.age.ms", "30000")
+
     if mode == "stream":
-        logger.info("Initializing Kafka ReadStream...")
-        return spark.readStream \
-            .format("kafka") \
-            .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS) \
-            .option("subscribe", KAFKA_TOPIC) \
-            .option("startingOffsets", "latest") \
-            .option("failOnDataLoss", "false") \
-            .option("kafka.client.dns.lookup", "use_all_dns_ips") \
-            .option("kafka.metadata.max.age.ms", "30000") \
-            .load()
+        # Stream starts from latest if no checkpoint exists
+        stream_reader = stream_reader.option("startingOffsets", "latest")
     else:
-        logger.info("Initializing Kafka Batch Read...")
-        return spark.read \
-            .format("kafka") \
-            .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS) \
-            .option("subscribe", KAFKA_TOPIC) \
-            .option("startingOffsets", "earliest") \
-            .option("endingOffsets", "latest") \
-            .option("kafka.client.dns.lookup", "use_all_dns_ips") \
-            .option("kafka.metadata.max.age.ms", "30000") \
-            .load()
+        # Batch starts from earliest if no checkpoint exists
+        stream_reader = stream_reader.option("startingOffsets", "earliest")
+            
+    return stream_reader.load()
 
 # ---------- 3. Unified Processing Logic ----------
 def process_data(df, spark, mode):
@@ -247,26 +243,31 @@ def main():
         full_table = f"{base}{suffix}"
 
         if args.mode == "stream":
-            # Start Streaming Query
+            # Start Continuous Streaming Query
             ckpt = os.path.join(CHECKPOINT_ROOT, f"{base}{suffix}")
+            print(f"Started STREAM: {full_table} [{interval}]")
+            
             q = agg_df.writeStream \
                 .outputMode("update") \
                 .foreachBatch(lambda df, id, t=full_table: write_cassandra(df, t, "stream", id)) \
                 .option("checkpointLocation", ckpt) \
                 .start()
             active_streams.append(q)
-            print(f"Started STREAM: {full_table} [{interval}]")
         else:
-            # Run Batch Write immediately
-            print(f"Running BATCH: {full_table} [{interval}]...")
-            write_cassandra(agg_df, full_table, "batch")
+            # Start Incremental Batch (Trigger AvailableNow)
+            ckpt = os.path.join(CHECKPOINT_ROOT, f"{base}{suffix}")
+            print(f"Starting BATCH (Incremental): {full_table} [{interval}]...")
 
-    if args.mode == "stream":
-        print(f"Pipeline running with {len(active_streams)} streams...")
-        spark.streams.awaitAnyTermination()
-    else:
-        print("Batch processing complete.")
-        spark.stop()
+            q = agg_df.writeStream \
+                .outputMode("update") \
+                .foreachBatch(lambda df, id, t=full_table: write_cassandra(df, t, "batch", id)) \
+                .option("checkpointLocation", ckpt) \
+                .trigger(availableNow=True) \
+                .start()
+            active_streams.append(q)
+
+    print(f"Pipeline running with {len(active_streams)} streams (Mode: {args.mode})...")
+    spark.streams.awaitAnyTermination()
 
 if __name__ == "__main__":
     main()
