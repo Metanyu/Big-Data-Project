@@ -92,6 +92,9 @@ jobs:
     - name: Start Batch Services
       run: docker compose up -d broker cassandra init-cassandra spark-batch producer
 
+    - name: Sleep to warm up
+      run: sleep 60
+      
     - name: Run Batch Verification
       run: uv run --with cassandra-driver tests/integration_test.py --table global_kpis_1d
 

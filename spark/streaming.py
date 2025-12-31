@@ -183,16 +183,23 @@ def get_payment_agg(df, interval):
 
 # ---------- 5. Writer Helpers ----------
 def write_cassandra(df, table_name, mode, epoch_id=None):
-    if df.rdd.isEmpty(): return
+    if df.rdd.isEmpty(): 
+        logger.info(f"Skipping Empty Batch {epoch_id} for {table_name}")
+        return
     
-    msg = f"Writing batch {epoch_id} to {table_name}" if epoch_id else f"Writing BATCH data to {table_name}"
+    count = df.count()
+    msg = f"Writing batch {epoch_id} to {table_name} - {count} records found" if epoch_id else f"Writing BATCH data to {table_name} - {count} records found"
     logger.info(msg)
     
-    df.write \
-        .format("org.apache.spark.sql.cassandra") \
-        .mode("append") \
-        .options(table=table_name, keyspace=CASSANDRA_KEYSPACE) \
-        .save()
+    try:
+        df.write \
+            .format("org.apache.spark.sql.cassandra") \
+            .mode("append") \
+            .options(table=table_name, keyspace=CASSANDRA_KEYSPACE) \
+            .save()
+        logger.info(f"Successfully wrote to {table_name}")
+    except Exception as e:
+        logger.error(f"FAILED writing to {table_name}: {e}")
 
 # ---------- 6. Main Execution Logic ----------
 def main():
