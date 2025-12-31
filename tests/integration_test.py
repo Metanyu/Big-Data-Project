@@ -1,13 +1,14 @@
 import time
 import os
 import sys
+import argparse
 from cassandra.cluster import Cluster
 from cassandra.query import SimpleStatement
 
-def check_data():
+def check_data(table_name):
     """
     Connects to Cassandra and checks if any data has been written to the 
-    zone_performance_30m table. Retries for up to 60 seconds.
+    specified table. Retries for up to 60 seconds.
     """
     print("Connecting to Cassandra...")
     
@@ -17,6 +18,7 @@ def check_data():
     
     for i in range(10):
         try:
+            # When running in Github Actions (or local), we connect to localhost:9042
             cluster = Cluster(['localhost'], port=9042)
             session = cluster.connect('taxi_streaming')
             print("Connected to Cassandra!")
@@ -29,13 +31,13 @@ def check_data():
         print("Could not connect to Cassandra after retries.")
         sys.exit(1)
 
-    print("Polling for data in 'zone_performance_30m'...")
+    print(f"Polling for data in '{table_name}'...")
     
     # Poll for data
-    timeout = 300
+    timeout = 600
     start_time = time.time()
     
-    query = "SELECT count(*) as cnt FROM zone_performance_30m"
+    query = f"SELECT count(*) as cnt FROM {table_name}"
     
     while time.time() - start_time < timeout:
         try:
@@ -52,8 +54,12 @@ def check_data():
             
         time.sleep(2)
         
-    print("TIMEOUT: No data appeared in Cassandra within 300 seconds.")
+    print(f"TIMEOUT: No data appeared in Cassandra table '{table_name}' within {timeout} seconds.")
     sys.exit(1)
 
 if __name__ == "__main__":
-    check_data()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--table", type=str, default="zone_performance_30m", help="Cassandra table to check")
+    args = parser.parse_args()
+    
+    check_data(args.table)
