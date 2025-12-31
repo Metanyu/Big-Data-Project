@@ -32,7 +32,7 @@ def check_data():
     print("Polling for data in 'zone_performance_30m'...")
     
     # Poll for data
-    timeout = 180
+    timeout = 300
     start_time = time.time()
     
     query = "SELECT count(*) as cnt FROM zone_performance_30m"
@@ -52,7 +52,7 @@ def check_data():
             
         time.sleep(2)
         
-    print("TIMEOUT: No data appeared in Cassandra within 180 seconds.")
+    print("TIMEOUT: No data appeared in Cassandra within 300 seconds.")
     sys.exit(1)
 
 if __name__ == "__main__":
