@@ -30,6 +30,11 @@ spec:
           mountPath: /var/lib/grafana
         - name: grafana-provisioning
           mountPath: /etc/grafana/provisioning/datasources
+        - name: grafana-dashboard-config
+          mountPath: /etc/grafana/provisioning/dashboards/dashboard.yaml
+          subPath: dashboard.yaml
+        - name: grafana-dashboards
+          mountPath: /etc/grafana/provisioning/dashboards/taxi
       volumes:
       - name: grafana-data
         persistentVolumeClaim:
@@ -37,6 +42,13 @@ spec:
       - name: grafana-provisioning
         configMap:
           name: grafana-datasources
+      - name: grafana-dashboard-config
+        configMap:
+          name: grafana-dashboard-config
+      - name: grafana-dashboards
+        configMap:
+          name: grafana-dashboards
+          optional: true
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
