@@ -217,7 +217,7 @@ def main():
     hdfs_query = final_df.writeStream \
         .outputMode("append") \
         .foreachBatch(write_hdfs) \
-        .trigger(processingTime="1 minute") \
+        .trigger(processingTime="30 seconds") \
         .option("checkpointLocation", os.path.join(CHECKPOINT_ROOT, "hdfs_raw")) \
         .start()
     
