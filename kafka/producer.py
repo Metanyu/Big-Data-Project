@@ -116,7 +116,9 @@ def simulate_stream(args, data_path):
     print(f"\n--- Starting Simulation (Ctrl+C to stop) ---")
     print(f"Topic: {args.topic} | Speedup: {args.speedup}x")
     
-    df = pl.scan_parquet(data_path).collect()
+    print("Loading data (Lazy)...")
+    # Chỉ lấy 100.000 dòng đầu để test cho nhẹ RAM, hoặc bỏ .head() nếu máy đủ khỏe sau khi tuning
+    df = pl.read_parquet(data_path).head(100000)
     iterator = df.iter_rows(named=True)
     
     # Initialize State

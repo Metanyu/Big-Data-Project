@@ -23,6 +23,13 @@ spec:
         env:
         - name: KAFKA_BOOTSTRAP_SERVERS
           value: "broker:9092"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "300m"
 ---
 apiVersion: v1
 kind: Service
@@ -58,7 +65,13 @@ spec:
         command:
         - /opt/spark/bin/spark-submit
         - --master
-        - local[*]
+        - local[2]
+        - --driver-memory
+        - 1536m
+        - --conf
+        - spark.cassandra.connection.keepAliveMS=5000
+        - --conf
+        - spark.hadoop.dfs.client.use.datanode.hostname=true
         - --jars
         - /opt/spark-jars/spark-sql-kafka-0-10_2.12-3.5.1.jar,/opt/spark-jars/kafka-clients-3.4.1.jar,/opt/spark-jars/spark-token-provider-kafka-0-10_2.12-3.5.1.jar,/opt/spark-jars/commons-pool2-2.11.1.jar,/opt/spark-jars/spark-cassandra-connector-assembly_2.12-3.5.1.jar
         - --conf
@@ -71,6 +84,16 @@ spec:
           value: "broker:9092"
         - name: CASSANDRA_HOST
           value: "cassandra"
+        # HDFS Integration (Batch Layer)
+        - name: HDFS_NAMENODE
+          value: "hdfs://namenode:8020"
+        resources:
+          requests:
+            memory: "1536Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
         volumeMounts:
         - name: spark-checkpoints
           mountPath: /tmp/spark_checkpoints
@@ -118,6 +141,16 @@ spec:
           value: "broker:9092"
         - name: CASSANDRA_HOST
           value: "cassandra"
+        # HDFS Integration (Batch Layer)
+        - name: HDFS_NAMENODE
+          value: "hdfs://namenode:8020"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
         volumeMounts:
         - name: spark-checkpoints
           mountPath: /tmp/spark_checkpoints_batch

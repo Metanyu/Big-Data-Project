@@ -5,7 +5,7 @@ import argparse
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     col, from_json, window, avg, sum as spark_sum, count,
-    when, lit, hour, dayofweek, unix_timestamp, broadcast
+    when, lit, hour, dayofweek, unix_timestamp, broadcast, to_date
 )
 from pyspark.sql.types import (
     StructType, StructField, IntegerType, LongType,
@@ -21,6 +21,10 @@ KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "taxi-trips")
 CASSANDRA_HOST = os.getenv("CASSANDRA_HOST", "localhost")
 CASSANDRA_KEYSPACE = os.getenv("CASSANDRA_KEYSPACE", "taxi_streaming")
 CHECKPOINT_ROOT = os.getenv("CHECKPOINT_ROOT", "/tmp/spark_checkpoints")
+
+# HDFS Config
+HDFS_NAMENODE = os.getenv("HDFS_NAMENODE", "hdfs://namenode:9000")
+HDFS_PATH = f"{HDFS_NAMENODE}/taxi_data/raw"
 
 # 7ax1 z0n3 100kup from: https://d37ci6vzurychx.cloudfront.net/misc/taxi_zone_lookup.csv
 SCRIPT_DIR = os.path.dirname(__file__)
@@ -53,38 +57,28 @@ taxi_schema = StructType([
 # ---------- 1. Initialization Helper ----------
 def get_spark_session(mode):
     builder = SparkSession.builder \
-        .appName(f"NYC Taxi Pipeline [{mode.upper()}]") \
+        .appName(f"NYC Taxi Lambda [{mode.upper()}]") \
         .config("spark.cassandra.connection.host", CASSANDRA_HOST) \
-        .config("spark.cassandra.connection.port", "9042")
+        .config("spark.cassandra.connection.port", "9042") \
+        .config("spark.sql.streaming.checkpointLocation", CHECKPOINT_ROOT) \
+        .config("spark.network.timeout", "600s") \
+        .config("spark.executor.heartbeatInterval", "120s")
     
-    if mode == "stream":
-        builder = builder.config("spark.sql.streaming.checkpointLocation", CHECKPOINT_ROOT)
-    
-    return builder.master("local[*]").getOrCreate()
+    return builder.master("local[2]").getOrCreate()
 
 # ---------- 2. Data Reader Helper ----------
-def read_kafka(spark, mode):
-    logger.info(f"Initializing Kafka ReadStream for mode: {mode}...")
-    
-    stream_reader = spark.readStream \
+def read_kafka(spark):
+    logger.info("Initializing Kafka ReadStream...")
+    return spark.readStream \
         .format("kafka") \
         .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS) \
         .option("subscribe", KAFKA_TOPIC) \
+        .option("startingOffsets", "earliest") \
         .option("failOnDataLoss", "false") \
-        .option("kafka.client.dns.lookup", "use_all_dns_ips") \
-        .option("kafka.metadata.max.age.ms", "30000")
-
-    if mode == "stream":
-        # Stream starts from latest if no checkpoint exists
-        stream_reader = stream_reader.option("startingOffsets", "latest")
-    else:
-        # Batch starts from earliest if no checkpoint exists
-        stream_reader = stream_reader.option("startingOffsets", "earliest")
-            
-    return stream_reader.load()
+        .load()
 
 # ---------- 3. Unified Processing Logic ----------
-def process_data(df, spark, mode):
+def process_data(df, spark):
     # Parse JSON
     parsed_df = df.select(
         from_json(col("value").cast("string"), taxi_schema).alias("data"),
@@ -105,11 +99,13 @@ def process_data(df, spark, mode):
         "event_time",
         when(col("tpep_pickup_datetime").isNotNull(), col("tpep_pickup_datetime"))
         .otherwise(col("kafka_timestamp"))
+    ).withColumn(
+        "event_date", 
+        to_date(col("event_time")) # Partition key cho HDFS
     )
 
-    # CONDITIONAL: Apply Watermark only for Streaming
-    if mode == "stream":
-        df_enriched = df_enriched.withWatermark("event_time", "2 hours")
+    # Watermark cho Aggregation
+    df_enriched = df_enriched.withWatermark("event_time", "2 hours")
 
     # Metrics Calculation
     df_final = df_enriched.withColumn("pickup_hour", hour("event_time")) \
@@ -153,7 +149,7 @@ def process_data(df, spark, mode):
         
     return df_final
 
-# ---------- 4. Aggregation Functions ----------
+# ---------- 4. Aggregation Functions (Speed Layer) ----------
 def get_zone_agg(df, interval):
     return df.groupBy(window(col("event_time"), interval), col("pickup_zone")).agg(
         count("*").alias("total_trips"),
@@ -201,83 +197,72 @@ def write_cassandra(df, table_name, mode, epoch_id=None):
     except Exception as e:
         logger.error(f"FAILED writing to {table_name}: {e}")
 
+# --- TÍCH HỢP HDFS (Batch Layer) ---
+def write_hdfs(df, epoch_id):
+    try:
+        if df.rdd.isEmpty(): return
+        logger.info(f"Writing BATCH {epoch_id} to HDFS [{HDFS_PATH}]")
+        df.write.mode("append").partitionBy("event_date").parquet(HDFS_PATH)
+    except Exception as e:
+        logger.error(f"Failed to write to HDFS: {e}")
+
 # ---------- 6. Main Execution Logic ----------
 def main():
-    parser = argparse.ArgumentParser(description="Unified Spark Processor")
-    parser.add_argument("--mode", choices=["stream", "batch"], default="stream", help="Execution mode (default: %(default)s)")
-    args = parser.parse_args()
-
-    spark = get_spark_session(args.mode)
+    spark = get_spark_session("stream")
     spark.sparkContext.setLogLevel("WARN")
 
-    # 1. Read & Process
-    raw_df = read_kafka(spark, args.mode)
-    final_df = process_data(raw_df, spark, args.mode)
+    # 1. Read & Process (Common for both layers)
+    raw_df = read_kafka(spark)
+    final_df = process_data(raw_df, spark)
 
-    # 2. Define Execution Plan
-    if args.mode == "stream":
-        # Stream Config: (Function, Interval, Table Suffix)
-        configs = [
-            (get_zone_agg, "30 minutes", "_30m"),
-            (get_zone_agg, "1 hour", "_1h"),
-            (get_global_agg, "30 minutes", "_30m"),
-            (get_global_agg, "1 hour", "_1h"),
-            (get_peak_agg, "30 minutes", "_30m"),
-            (get_payment_agg, "30 minutes", "_30m")
-        ]
-    else:
-        # Batch Config: Always 1 Day
-        configs = [
-            (get_zone_agg, "1 day", "_1d"),
-            (get_global_agg, "1 day", "_1d"),
-            (get_peak_agg, "1 day", "_1d"),
-            (get_payment_agg, "1 day", "_1d")
-        ]
-
-    # 3. Execute
+    # 2. Define Streams
     active_streams = []
+
+    # --- A. BATCH LAYER (HDFS Dump) ---
+    # Dump dữ liệu sạch xuống HDFS để sau này chạy batch job
+    # Trigger 1 phút/lần để tránh tạo quá nhiều file nhỏ và giảm tải RAM
+    hdfs_query = final_df.writeStream \
+        .outputMode("append") \
+        .foreachBatch(write_hdfs) \
+        .trigger(processingTime="30 seconds") \
+        .option("checkpointLocation", os.path.join(CHECKPOINT_ROOT, "hdfs_raw")) \
+        .start()
+    
+    active_streams.append(hdfs_query)
+    print("Started BATCH LAYER stream (HDFS)...")
+
+    # --- B. SPEED LAYER (Cassandra Aggregates) ---
+    configs = [
+        (get_zone_agg, "30 minutes", "_30m"),
+        # (get_zone_agg, "1 hour", "_1h"),
+        (get_global_agg, "30 minutes", "_30m"),
+        (get_peak_agg, "30 minutes", "_30m"),
+        (get_payment_agg, "30 minutes", "_30m")
+    ]
     
     for agg_func, interval, suffix in configs:
         agg_df = agg_func(final_df, interval)
         
-        # Determine base table name from suffix naming convention
-        # Mapping: _30m/_1h/_1d -> zone_performance / global_kpis / peak_analysis / payment_analysis
         if agg_func == get_zone_agg: base = "zone_performance"
         elif agg_func == get_global_agg: base = "global_kpis"
         elif agg_func == get_peak_agg: base = "peak_analysis"
         elif agg_func == get_payment_agg: base = "payment_analysis"
         
         full_table = f"{base}{suffix}"
+        ckpt = os.path.join(CHECKPOINT_ROOT, f"{base}{suffix}")
 
-        if args.mode == "stream":
-            # Start Continuous Streaming Query
-            ckpt = os.path.join(CHECKPOINT_ROOT, f"{base}{suffix}")
-            print(f"Started STREAM: {full_table} [{interval}]")
-            
-            q = agg_df.writeStream \
-                .outputMode("update") \
-                .foreachBatch(lambda df, id, t=full_table: write_cassandra(df, t, "stream", id)) \
-                .option("checkpointLocation", ckpt) \
-                .start()
-            active_streams.append(q)
-        else:
-            # Start Incremental Batch (Trigger AvailableNow)
-            ckpt = os.path.join(CHECKPOINT_ROOT, f"{base}{suffix}")
-            print(f"Starting BATCH (Incremental): {full_table} [{interval}]...")
+        q = agg_df.writeStream \
+            .outputMode("update") \
+            .foreachBatch(lambda df, id, t=full_table: write_cassandra(df, t, id)) \
+            .option("checkpointLocation", ckpt) \
+            .start()
+        
+        active_streams.append(q)
+        print(f"Started SPEED LAYER stream: {full_table} [{interval}]")
 
-            q = agg_df.writeStream \
-                .outputMode("update") \
-                .foreachBatch(lambda df, id, t=full_table: write_cassandra(df, t, "batch", id)) \
-                .option("checkpointLocation", ckpt) \
-                .trigger(availableNow=True) \
-                .start()
-            active_streams.append(q)
+    print(f"Pipeline running with {len(active_streams)} streams...")
+    spark.streams.awaitAnyTermination()
 
-    print(f"Pipeline running with {len(active_streams)} streams (Mode: {args.mode})...")
-    
-    # Wait for ALL streams to finish (especially crucial for Batch mode)
-    for q in active_streams:
-        q.awaitTermination()
 
 if __name__ == "__main__":
     main()
