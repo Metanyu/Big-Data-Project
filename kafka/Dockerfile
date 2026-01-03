@@ -11,7 +11,7 @@ COPY pyproject.toml uv.lock ./
 
 # Install dependencies into a virtual environment
 # --frozen ensures we stick to the lockfile
-RUN uv sync --frozen
+RUN uv sync --frozen --verbose
 
 # Stage 2: Runtime
 FROM python:3.11-slim
@@ -22,7 +22,9 @@ WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 
 # Copy application code
-COPY kafka/producer.py ./producer.py
+COPY kafka/ /app/kafka/
+# Bake in the simulated data
+COPY data/ /data/
 
 # Add virtualenv to PATH so we can run python/uv commands directly
 ENV PATH="/app/.venv/bin:$PATH"

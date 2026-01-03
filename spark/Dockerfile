@@ -19,4 +19,7 @@ RUN mkdir -p /opt/spark-jars /tmp/spark_checkpoints /tmp/spark-events /opt/spark
     curl -o /opt/spark-jars/spark-cassandra-connector-assembly_2.12-3.5.1.jar \
     https://repo1.maven.org/maven2/com/datastax/spark/spark-cassandra-connector-assembly_2.12/3.5.1/spark-cassandra-connector-assembly_2.12-3.5.1.jar
 
+# Bake in the Spark applications
+COPY spark/ /opt/spark-apps/
+
 USER spark
