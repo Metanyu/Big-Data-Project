@@ -18,3 +18,6 @@ data:
         url: cassandra:9042
         jsonData:
           keyspace: taxi_streaming
+          consistency: ONE
+        isDefault: true
+        editable: true

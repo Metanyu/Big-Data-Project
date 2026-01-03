@@ -7,6 +7,7 @@ How to run this project but with Kubernetes local development environment (Kind 
 ## How to run
 
 ### 1. Deploy
+Install [Kind](https://kind.sigs.k8s.io/) and [kubectl](https://kubernetes.io/docs/tasks/tools/) if you haven't already.
 This deploy script creates the cluster, builds images, and applies manifests.
 ```bash
 ./scripts/deploy.sh
@@ -29,6 +30,9 @@ Services are exposed via `NodePort` and need to be forwarded to the localhost po
     ```bash
     kubectl -n big-data port-forward svc/grafana 3000:3000
     ```
+
+    Username: `admin`
+    Password: `admin`
 *   **Kafka UI**: http://localhost:8080
     ```bash
     kubectl -n big-data port-forward svc/kafka-ui 8080:8080
