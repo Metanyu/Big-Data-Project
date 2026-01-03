@@ -95,9 +95,17 @@ services:
       - SPARK_LOCAL_DIRS=/tmp
       - KAFKA_BOOTSTRAP_SERVERS=broker:29092
       - CASSANDRA_HOST=cassandra
+      - HDFS_NAMENODE=hdfs://namenode:8020
+    # --- Tối ưu Command Spark ---
+    # 1. Giới hạn driver/executor memory
+    # 2. Giảm số core xuống local[2] thay vì local[*] để giảm tải CPU/RAM
     command: >
       /opt/spark/bin/spark-submit
-      --master local[*]
+      --master local[2]
+      --driver-memory 1536m
+      --executor-memory 1536m
+      --conf spark.cassandra.connection.keepAliveMS=5000
+      --conf spark.hadoop.dfs.client.use.datanode.hostname=true
       --jars /opt/spark-jars/spark-sql-kafka-0-10_2.12-3.5.1.jar,/opt/spark-jars/kafka-clients-3.4.1.jar,/opt/spark-jars/spark-token-provider-kafka-0-10_2.12-3.5.1.jar,/opt/spark-jars/commons-pool2-2.11.1.jar,/opt/spark-jars/spark-cassandra-connector-assembly_2.12-3.5.1.jar
       --conf spark.sql.streaming.checkpointLocation=/tmp/spark_checkpoints
       /opt/spark-apps/streaming.py
@@ -136,41 +144,68 @@ services:
       - KAFKA_CLUSTERS_0_METRICS_PORT=9997
     depends_on:
       - broker
+    deploy:
+      resources:
+        limits:
+          memory: 400M
+  
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: namenode
+    hostname: namenode
+    user: root
+    environment:
+      - CLUSTER_NAME=test
+      - JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+      # Tăng RAM lên 512m để xử lý request tốt hơn
+      - HADOOP_OPTS=-Xmx512m -Xms512m
+      # --- QUAN TRỌNG NHẤT: Ép mở cổng 9000 cho tất cả IP ---
+      - HDFS_CONF_dfs_namenode_rpc_address=0.0.0.0:9000
+      - HDFS_CONF_dfs_namenode_http_address=0.0.0.0:9870
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
+      # -------------------------------------------------------
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+    volumes:
+      - hdfs_namenode:/hadoop/dfs/name
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  # --- THÊM: HDFS DataNode (Worker) ---
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode
+    hostname: datanode
+    user: root
+    environment:
+      - SERVICE_PRECONDITION=namenode:9870
+      # Tối ưu RAM cực gắt: Chỉ cho 256MB Heap
+      - JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+      - HADOOP_OPTS=-Xmx512m -Xms512m
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
+      - HDFS_CONF_dfs_datanode_use_datanode_hostname=true
+      - HDFS_CONF_dfs_client_use_datanode_hostname=true
+      - HDFS_CONF_dfs_datanode_address=0.0.0.0:9866
+      - HDFS_CONF_dfs_datanode_http_address=0.0.0.0:9864
+      - HDFS_CONF_dfs_datanode_ipc_address=0.0.0.0:9867
+      # Thêm dòng này cho chắc ăn để nó biết tên nó là gì
+      - HDFS_CONF_dfs_datanode_hostname=datanode
+    volumes:
+      - hdfs_datanode:/hadoop/dfs/data
+    depends_on:
+      - namenode
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
 volumes:
   cassandra_data:
   grafana_data:
   spark-checkpoints:
   kafka_data:
-
-    # The commented out section below is an example of how to define a PostgreSQL
-    # database that your application can use. `depends_on` tells Docker Compose to
-    # start the database before your application. The `db-data` volume persists the
-    # database data between container restarts. The `db-password` secret is used
-    # to set the database password. You must create `db/password.txt` and add
-    # a password of your choosing to it before running `docker compose up`.
-    #     depends_on:
-    #       db:
-    #         condition: service_healthy
-    #   db:
-    #     image: postgres
-    #     restart: always
-    #     user: postgres
-    #     secrets:
-    #       - db-password
-    #     volumes:
-    #       - db-data:/var/lib/postgresql/data
-    #     environment:
-    #       - POSTGRES_DB=example
-    #       - POSTGRES_PASSWORD_FILE=/run/secrets/db-password
-    #     expose:
-    #       - 5432
-    #     healthcheck:
-    #       test: [ "CMD", "pg_isready" ]
-    #       interval: 10s
-    #       timeout: 5s
-    #       retries: 5
-    # volumes:
-    #   db-data:
-    # secrets:
-    #   db-password:
-    #     file: db/password.txt
+  hdfs_namenode:
+  hdfs_datanode:
