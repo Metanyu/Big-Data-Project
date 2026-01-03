@@ -35,9 +35,14 @@ kubectl -n big-data create configmap grafana-dashboards $DASHBOARD_FILES --dry-r
 
 kubectl apply -f kubernetes/01-data-layer.yaml
 
-echo ">>> Waiting for Data Layer (Cassandra/Kafka)..."
+echo ">>> Deploying HDFS (Batch Layer)..."
+kubectl apply -f kubernetes/05-hdfs.yaml
+
+echo ">>> Waiting for Data Layer (Cassandra/Kafka/HDFS)..."
 kubectl -n big-data rollout status statefulset/broker
 kubectl -n big-data rollout status statefulset/cassandra
+kubectl -n big-data rollout status statefulset/namenode
+kubectl -n big-data rollout status statefulset/datanode
 
 echo ">>> Running Init Jobs (Cassandra & Kafka)..."
 # Delete old jobs if they exist to allow re-run
@@ -53,4 +58,5 @@ kubectl apply -f kubernetes/04-ui.yaml
 echo ">>> Done! Access services:"
 echo "Grafana: http://localhost:30300 (via NodePort - requires port forward if on mac/remote)"
 echo "Kafka UI: http://localhost:30080"
+echo "HDFS UI: kubectl -n big-data port-forward svc/namenode 9870:9870"
 echo "Metrics: kubectl -n big-data port-forward svc/grafana 3000:3000"

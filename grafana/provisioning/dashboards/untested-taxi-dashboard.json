@@ -108,7 +108,7 @@
           "queryType": "query",
           "rawQuery": true,
           "refId": "A",
-          "target": "SELECT pickup_zone, total_revenue AS value, window_start AS time FROM taxi_streaming.zone_performance_1h WHERE pickup_zone = 'Upper East Side North' ORDER BY window_start ASC"
+          "target": "SELECT pickup_zone, total_revenue AS value, window_start AS time FROM taxi_streaming.zone_performance_30m WHERE pickup_zone = 'Upper East Side North' ORDER BY window_start ASC"
         },
         {
           "datasource": {
@@ -118,7 +118,7 @@
           "queryType": "query",
           "rawQuery": true,
           "refId": "B",
-          "target": "SELECT pickup_zone, total_revenue AS value, window_start AS time FROM taxi_streaming.zone_performance_1h WHERE pickup_zone = 'Upper East Side South' ORDER BY window_start ASC"
+          "target": "SELECT pickup_zone, total_revenue AS value, window_start AS time FROM taxi_streaming.zone_performance_30m WHERE pickup_zone = 'Upper East Side South' ORDER BY window_start ASC"
         },
         {
           "datasource": {
@@ -128,7 +128,7 @@
           "queryType": "query",
           "rawQuery": true,
           "refId": "C",
-          "target": "SELECT pickup_zone, total_revenue AS value, window_start AS time FROM taxi_streaming.zone_performance_1h WHERE pickup_zone = 'Midtown Center' ORDER BY window_start ASC"
+          "target": "SELECT pickup_zone, total_revenue AS value, window_start AS time FROM taxi_streaming.zone_performance_30m WHERE pickup_zone = 'Midtown Center' ORDER BY window_start ASC"
         },
         {
           "datasource": {
@@ -138,7 +138,7 @@
           "queryType": "query",
           "rawQuery": true,
           "refId": "D",
-          "target": "SELECT pickup_zone, total_revenue AS value, window_start AS time FROM taxi_streaming.zone_performance_1h WHERE pickup_zone = 'Lincoln Square East' ORDER BY window_start ASC"
+          "target": "SELECT pickup_zone, total_revenue AS value, window_start AS time FROM taxi_streaming.zone_performance_30m WHERE pickup_zone = 'Lincoln Square East' ORDER BY window_start ASC"
         },
         {
           "datasource": {
@@ -148,10 +148,10 @@
           "queryType": "query",
           "rawQuery": true,
           "refId": "E",
-          "target": "SELECT pickup_zone, total_revenue AS value, window_start AS time FROM taxi_streaming.zone_performance_1h WHERE pickup_zone = 'Times Sq/Theatre District' ORDER BY window_start ASC"
+          "target": "SELECT pickup_zone, total_revenue AS value, window_start AS time FROM taxi_streaming.zone_performance_30m WHERE pickup_zone = 'Times Sq/Theatre District' ORDER BY window_start ASC"
         }
       ],
-      "title": "Total Revenue by Top Zones (Hourly)",
+      "title": "Total Revenue by Top Zones (Half-Hourly)",
       "type": "timeseries"
     },
     {

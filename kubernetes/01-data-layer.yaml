@@ -36,6 +36,9 @@ spec:
         - containerPort: 9092
         - containerPort: 29092
         env:
+        # Memory optimization (match Docker Compose)
+        - name: KAFKA_HEAP_OPTS
+          value: "-Xmx400M -Xms400M"
         - name: KAFKA_NODE_ID
           value: "1"
         - name: KAFKA_PROCESS_ROLES
@@ -64,6 +67,13 @@ spec:
           value: "/tmp/kraft-combined-logs"
         - name: CLUSTER_ID
           value: "MkU3OEVBNTcwNTJENDM2Qk"
+        resources:
+          requests:
+            memory: "400Mi"
+            cpu: "200m"
+          limits:
+            memory: "600Mi"
+            cpu: "500m"
         volumeMounts:
         - name: kafka-data
           mountPath: /tmp/kraft-combined-logs
@@ -117,6 +127,18 @@ spec:
           value: "datacenter1"
         - name: CASSANDRA_RACK
           value: "rack1"
+        # Memory optimization (match Docker Compose)
+        - name: MAX_HEAP_SIZE
+          value: "2048M"
+        - name: HEAP_NEWSIZE
+          value: "200M"
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "500m"
+          limits:
+            memory: "2.5Gi"
+            cpu: "1"
         readinessProbe:
           exec:
             command: ["cqlsh", "-e", "describe keyspaces"]

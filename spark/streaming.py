@@ -236,9 +236,8 @@ def main():
         (get_zone_agg, "30 minutes", "_30m"),
         # (get_zone_agg, "1 hour", "_1h"),
         (get_global_agg, "30 minutes", "_30m"),
-        # (get_global_agg, "1 hour", "_1h"), # Tắt bớt 1 luồng global 1h để tiết kiệm RAM cho HDFS
-        # (get_peak_agg, "30 minutes", "_30m"),
-        # (get_payment_agg, "30 minutes", "_30m")
+        (get_peak_agg, "30 minutes", "_30m"),
+        (get_payment_agg, "30 minutes", "_30m")
     ]
     
     for agg_func, interval, suffix in configs:
