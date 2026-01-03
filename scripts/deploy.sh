@@ -20,6 +20,19 @@ kubectl apply -f kubernetes/00-core.yaml
 echo ">>> Generating ConfigMap from init.cql..."
 kubectl -n big-data create configmap cassandra-init --from-file=init.cql=cassandra/init.cql --dry-run=client -o yaml | kubectl apply -f -
 
+echo ">>> Generating Grafana Dashboard ConfigMaps..."
+# Dashboard provisioning config
+kubectl -n big-data create configmap grafana-dashboard-config \
+  --from-file=dashboard.yaml=grafana/provisioning/dashboards/dashboard.yaml \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# All dashboard JSON files (load all *.json files from the dashboards folder)
+DASHBOARD_FILES=""
+for f in grafana/provisioning/dashboards/*.json; do
+  DASHBOARD_FILES="$DASHBOARD_FILES --from-file=$(basename $f)=$f"
+done
+kubectl -n big-data create configmap grafana-dashboards $DASHBOARD_FILES --dry-run=client -o yaml | kubectl apply -f -
+
 kubectl apply -f kubernetes/01-data-layer.yaml
 
 echo ">>> Waiting for Data Layer (Cassandra/Kafka)..."
