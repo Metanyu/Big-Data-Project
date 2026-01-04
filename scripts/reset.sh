@@ -19,10 +19,13 @@ echo ">>> Regenerating ConfigMap..."
 kubectl -n big-data create configmap cassandra-init --from-file=init.cql=cassandra/init.cql --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl apply -f kubernetes/01-data-layer.yaml
+kubectl apply -f kubernetes/05-hdfs.yaml
 
 echo ">>> Waiting for Data Layer..."
 kubectl -n big-data rollout status statefulset/broker
 kubectl -n big-data rollout status statefulset/cassandra
+kubectl -n big-data rollout status statefulset/namenode
+kubectl -n big-data rollout status statefulset/datanode
 
 echo ">>> Re-initializing Schema & Topics..."
 # Delete old job so we can re-run it
